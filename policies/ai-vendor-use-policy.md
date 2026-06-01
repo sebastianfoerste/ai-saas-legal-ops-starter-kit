@@ -24,7 +24,7 @@ The following use cases require completing an **AI Vendor Review** intake and re
 *   Using automated tools to draft customer contracts or response briefs.
 
 ### C. Prohibited Use
-The following uses are strictly banned. No exceptions:
+The following uses are strictly prohibited:
 *   Entering customer Personal Identifiable Information (PII) or HIPAA-covered health records into public, un-gated AI tools.
 *   Entering proprietary source code or trade secrets into tools that train their base models on user inputs.
 *   Using AI models to make automated, un-reviewed decisions affecting employee status or creditworthiness.

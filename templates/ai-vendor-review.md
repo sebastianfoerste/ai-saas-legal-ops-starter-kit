@@ -23,7 +23,7 @@ Use this template before approving any new third-party AI tool, API integration,
 ## 5. Output
 *   **Vendor Approval Status**: [Approved / Rejected / Pending / Escalated]
 *   **Permitted Use Cases**: [Explicit list of approved uses]
-*   **Prohibited Use Cases**: [Banned data categories, e.g. NO production code, NO customer PII]
+*   **Prohibited Use Cases**: [Prohibited data categories, e.g. no production code, no customer personal data]
 *   **Compliance Conditions**: [e.g. Must toggle 'Opt-Out of Model Training' switch in settings]
 
 ## 6. Escalation Triggers
