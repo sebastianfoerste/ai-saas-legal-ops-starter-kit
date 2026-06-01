@@ -1,0 +1,46 @@
+{
+  "productOrService": "StrategyOS Enterprise Agent",
+  "role": "processor",
+  "dataSubjects": [
+    "employees",
+    "contractors",
+    "end users"
+  ],
+  "personalDataCategories": [
+    "names",
+    "email addresses",
+    "employee IDs",
+    "user prompt inputs"
+  ],
+  "specialCategoryData": [
+    "health data",
+    "biometric data"
+  ],
+  "subprocessors": [
+    {
+      "name": "Pinecone Systems Inc.",
+      "location": "US",
+      "purpose": "Vector Search Hosting"
+    },
+    {
+      "name": "Anthropic PBC",
+      "location": "US",
+      "purpose": "LLM Inference API"
+    }
+  ],
+  "transferLocations": [
+    "US",
+    "EU"
+  ],
+  "retentionPeriod": "Indefinite or custom retention",
+  "deletionProcess": "Delete customer data upon 90 days request",
+  "securityAnnexStatus": "Custom Customer Requirements",
+  "customerRequestedChanges": [
+    "Liability caps on GDPR breach notifications",
+    "Right to audit our physical server locations"
+  ],
+  "riskLevel": "escalate",
+  "missingFacts": [
+    "Clarify whether subprocessor contracts contain Standard Contractual Clauses (SCCs)"
+  ]
+}

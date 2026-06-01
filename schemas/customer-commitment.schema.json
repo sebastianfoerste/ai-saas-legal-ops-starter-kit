@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CustomerCommitment",
+  "description": "Schema for tracking and validation of customer-specific contractual commitments, SLAs, and custom feature promises.",
+  "type": "object",
+  "properties": {
+    "customer": {
+      "type": "string",
+      "description": "The name of the customer company."
+    },
+    "commitment": {
+      "type": "string",
+      "description": "Detailed description of the contractual or technical commitment (e.g. EU data residency, custom backup)."
+    },
+    "sourceDocument": {
+      "type": "string",
+      "description": "The document title and section containing this commitment (e.g. MSA Exhibit B, Section 4.2)."
+    },
+    "owner": {
+      "type": "string",
+      "description": "The internal engineering or operational owner responsible for delivery."
+    },
+    "productArea": {
+      "type": "string",
+      "description": "The product or platform module affected by the commitment (e.g. Storage, UI, Auth)."
+    },
+    "operationalDependency": {
+      "type": "string",
+      "description": "Any technical dependencies required to meet the commitment (e.g. Frankfurt region deployment)."
+    },
+    "renewalRelevance": {
+      "type": "boolean",
+      "description": "Whether this commitment is key to customer contract renewal."
+    },
+    "reviewDate": {
+      "type": "string",
+      "format": "date",
+      "description": "The deadline/date for checking compliance status (YYYY-MM-DD)."
+    },
+    "currentStatus": {
+      "type": "string",
+      "enum": ["active", "pending", "overdue", "at_risk", "completed"],
+      "description": "The current fulfillment status of the commitment."
+    },
+    "requiredAction": {
+      "type": "string",
+      "description": "The specific task required to fulfill or remediate the commitment."
+    }
+  },
+  "required": [
+    "customer",
+    "commitment",
+    "sourceDocument",
+    "owner",
+    "productArea",
+    "renewalRelevance",
+    "reviewDate",
+    "currentStatus"
+  ]
+}

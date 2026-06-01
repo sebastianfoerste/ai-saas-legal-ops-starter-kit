@@ -1,0 +1,32 @@
+{
+  "name": "@sebastianfoerste/ai-saas-legal-ops-starter-kit",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Portfolio-grade legal engineering starter kit for AI-native SaaS companies.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "validate:examples": "vitest run tests/schema-validation.test.ts"
+  },
+  "keywords": [
+    "legalops",
+    "legal-engineering",
+    "saas",
+    "ai-governance",
+    "json-schema"
+  ],
+  "author": "Sebastian Förste",
+  "license": "MIT",
+  "dependencies": {
+    "ajv": "^8.12.0",
+    "ajv-formats": "^2.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.1"
+  }
+}

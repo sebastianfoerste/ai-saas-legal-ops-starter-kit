@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProductLaunchIntake",
+  "description": "Schema for triaging new feature releases and product launches to assess legal, privacy, and regulatory risk.",
+  "type": "object",
+  "properties": {
+    "feature": {
+      "type": "string",
+      "description": "The name of the new feature or product capability."
+    },
+    "owner": {
+      "type": "string",
+      "description": "The product manager or lead responsible for the launch."
+    },
+    "targetDate": {
+      "type": "string",
+      "format": "date",
+      "description": "The scheduled public launch date (YYYY-MM-DD)."
+    },
+    "customerSegment": {
+      "type": "string",
+      "description": "Target customers (e.g. Enterprise, SMB, B2C, Regulated Markets)."
+    },
+    "jurisdictions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Target regions or jurisdictions for the feature (e.g. US, EU, UK, global)."
+    },
+    "dataInvolved": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Any new user or system data categories collected or processed."
+    },
+    "aiFeatures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Underlying models or AI services used (e.g. Gemini 1.5 Pro, local fine-tuned LLM)."
+    },
+    "publicClaims": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Marketing claims, performance benchmarks, or accuracy assertions being published (e.g. '99% accurate on medical coding')."
+    },
+    "customerCommitmentsAffected": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Any existing customer-specific SLAs or custom contract terms affected by this feature."
+    },
+    "privacyImpact": {
+      "type": "string",
+      "description": "Assessment of privacy considerations, consent flows, or DPIA requirements."
+    },
+    "contractImpact": {
+      "type": "string",
+      "description": "Whether the new feature requires updating standard MSAs, order forms, or DPAs."
+    },
+    "regulatoryImpact": {
+      "type": "string",
+      "description": "Compliance implications under EU AI Act, MiCAR, DORA, CCPA, or HIPAA."
+    },
+    "requiredApprovals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Mandatory internal sign-offs needed before launch (e.g. Security, DPO, VP Product)."
+    }
+  },
+  "required": [
+    "feature",
+    "owner",
+    "targetDate",
+    "customerSegment",
+    "jurisdictions",
+    "dataInvolved",
+    "aiFeatures",
+    "publicClaims",
+    "privacyImpact",
+    "contractImpact",
+    "regulatoryImpact"
+  ]
+}

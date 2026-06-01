@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DPATriage",
+  "description": "Schema for triaging and validating Data Processing Agreements (DPAs) or custom privacy terms.",
+  "type": "object",
+  "properties": {
+    "productOrService": {
+      "type": "string",
+      "description": "The specific SaaS product or service covered by this DPA."
+    },
+    "role": {
+      "type": "string",
+      "enum": ["controller", "processor", "joint_controller"],
+      "description": "The role of the SaaS company under GDPR/CCPA for this processing activity."
+    },
+    "dataSubjects": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "The categories of data subjects (e.g. employees, customers, patients, end-users)."
+    },
+    "personalDataCategories": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Categories of personal data processed (e.g. name, email, IP address, user logs)."
+    },
+    "specialCategoryData": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Special categories of data / sensitive data under GDPR Art. 9 (e.g. biometric, health, genetic, sexual orientation)."
+    },
+    "subprocessors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "location": { "type": "string" },
+          "purpose": { "type": "string" }
+        },
+        "required": ["name", "location"]
+      },
+      "description": "List of sub-processors who will process the personal data under this contract."
+    },
+    "transferLocations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Geographical locations where data will be stored or processed (e.g. US, EU, Germany)."
+    },
+    "retentionPeriod": {
+      "type": "string",
+      "description": "The period for which the personal data is retained (e.g. 'Term of Agreement + 30 days')."
+    },
+    "deletionProcess": {
+      "type": "string",
+      "description": "The mechanism and SLA for deleting data upon contract termination (e.g. 'Within 30 days upon request, certified')."
+    },
+    "securityAnnexStatus": {
+      "type": "string",
+      "enum": ["Standard TOMs", "Custom Customer Requirements", "Pending Review"],
+      "description": "The status or reference to the Technical and Organizational Security Measures (TOMs)."
+    },
+    "customerRequestedChanges": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Key deviations or edits requested by the customer in their DPA mark-up."
+    },
+    "riskLevel": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "escalate"],
+      "description": "DPA triage risk classification."
+    },
+    "missingFacts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Any missing information needed to complete the triage (e.g. missing list of subprocessors)."
+    }
+  },
+  "required": [
+    "productOrService",
+    "role",
+    "dataSubjects",
+    "personalDataCategories",
+    "specialCategoryData",
+    "transferLocations",
+    "retentionPeriod",
+    "deletionProcess",
+    "securityAnnexStatus"
+  ]
+}

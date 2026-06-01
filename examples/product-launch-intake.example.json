@@ -1,0 +1,33 @@
+{
+  "feature": "AutoDraft Agent v2",
+  "owner": "Sarah Jenkins (Director of AI Product)",
+  "targetDate": "2026-06-30",
+  "customerSegment": "Enterprise (includes Banks and Regulated Tech)",
+  "jurisdictions": [
+    "US",
+    "EU",
+    "UK"
+  ],
+  "dataInvolved": [
+    "user credentials",
+    "uploaded bank statements",
+    "customer support transcripts"
+  ],
+  "aiFeatures": [
+    "Gemini 1.5 Flash (fine-tuned on anonymized logs)"
+  ],
+  "publicClaims": [
+    "Our fine-tuned model predicts billing errors with 99.8% accuracy and has zero hallucination rate"
+  ],
+  "customerCommitmentsAffected": [
+    "Apex Finance Corp's custom Germany-only processing restriction"
+  ],
+  "privacyImpact": "Requires updated privacy notice and consent check-box for using session inputs to run fine-tuning checks.",
+  "contractImpact": "Requires updating MSA Exhibit A (Feature List) and AI Vendor Use Policy",
+  "regulatoryImpact": "Triggers high-risk assessment under the EU AI Act due to credit scoring implications and potential bias audits",
+  "requiredApprovals": [
+    "DPO Sign-off",
+    "VP Engineering Security",
+    "GC Approval"
+  ]
+}

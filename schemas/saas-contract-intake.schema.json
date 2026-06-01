@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SaaSContractIntake",
+  "description": "Schema for triaging and validating incoming SaaS customer or vendor contracts.",
+  "type": "object",
+  "properties": {
+    "requestOwner": {
+      "type": "string",
+      "description": "The name or email of the internal business sponsor/owner of the request."
+    },
+    "customer": {
+      "type": "string",
+      "description": "The name of the customer organization."
+    },
+    "contractType": {
+      "type": "string",
+      "enum": ["MSA", "NDA", "DPA", "Addendum", "SLA", "OrderForm", "Custom"],
+      "description": "The type of the agreement being submitted."
+    },
+    "dealStage": {
+      "type": "string",
+      "enum": ["Lead", "Proposal", "Negotiation", "LegalReview", "Approved", "Signature"],
+      "description": "The current stage of the business deal."
+    },
+    "requestedDeadline": {
+      "type": "string",
+      "format": "date",
+      "description": "The date by which the review is requested (YYYY-MM-DD)."
+    },
+    "customerSector": {
+      "type": "string",
+      "description": "The industry sector of the customer (e.g. Healthcare, Finance, Fintech, Retail, Tech)."
+    },
+    "regulatedCustomer": {
+      "type": "boolean",
+      "description": "Whether the customer is a regulated entity (e.g. governed by HIPAA, BaFin, SEC, FCA, DORA)."
+    },
+    "deploymentModel": {
+      "type": "string",
+      "enum": ["Multi-Tenant SaaS", "Single-Tenant Dedicated", "On-Premises", "Hybrid"],
+      "description": "How the SaaS software is deployed for the customer."
+    },
+    "dataCategories": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Categories of data that will be processed (e.g. IP addresses, emails, healthcare data, credit card information)."
+    },
+    "aiFeaturesInvolved": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of AI features or modules the customer will use (e.g. Agentic Search, RAG Co-Pilot, automated drafting)."
+    },
+    "modelOrVendorProvidersInvolved": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Sub-processors or underlying model vendors involved (e.g. OpenAI, Anthropic, Google Gemini)."
+    },
+    "nonStandardTerms": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Any requested deviations from standard terms (e.g. uncapped liability, custom IP rights, custom audits)."
+    },
+    "redFlags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Identified risks or non-starters during initial review (e.g. class action waivers, aggressive indemnities)."
+    },
+    "businessPosition": {
+      "type": "string",
+      "description": "The commercial context or business reasoning for accepting non-standard terms."
+    },
+    "legalQuestion": {
+      "type": "string",
+      "description": "Specific question or issue submitted for Legal Counsel review."
+    }
+  },
+  "required": [
+    "requestOwner",
+    "customer",
+    "contractType",
+    "dealStage",
+    "requestedDeadline",
+    "regulatedCustomer",
+    "dataCategories",
+    "aiFeaturesInvolved"
+  ]
+}

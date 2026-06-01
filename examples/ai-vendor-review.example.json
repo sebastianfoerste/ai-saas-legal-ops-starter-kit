@@ -1,0 +1,29 @@
+{
+  "vendor": "Synthetix AI Inc.",
+  "tool": "TranslateMaster Pro",
+  "useCase": "Translating client contracts and product documentation",
+  "businessOwner": "Marcus Vance (Localization Team)",
+  "dataEntered": [
+    "customer agreements",
+    "personal identifiers",
+    "proprietary source code comments"
+  ],
+  "outputUse": "Shared directly with international partners and uploaded to customer portals",
+  "retentionPosition": "Indefinite retention of customer inputs for fine-tuning",
+  "trainingOnCustomerData": true,
+  "subprocessors": [
+    "unverified third party host in non-EU country"
+  ],
+  "securityMaterial": [
+    "Self-assessment questionnaire only"
+  ],
+  "approvedUse": false,
+  "prohibitedUse": [
+    "Do not use with customer health data",
+    "Do not input credit card details"
+  ],
+  "conditions": [
+    "Require signing of standard DPA",
+    "Require custom training opt-out agreement"
+  ]
+}

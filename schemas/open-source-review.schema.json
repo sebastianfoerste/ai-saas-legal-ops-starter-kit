@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OpenSourceReview",
+  "description": "Schema for reviewing and triaging open-source software libraries used in SaaS products.",
+  "type": "object",
+  "properties": {
+    "package": {
+      "type": "string",
+      "description": "The name of the open-source package/library (e.g. lodash, react, sidekiq)."
+    },
+    "licence": {
+      "type": "string",
+      "description": "The license type of the package (e.g. MIT, Apache-2.0, GPL-3.0, AGPL-3.0)."
+    },
+    "useCase": {
+      "type": "string",
+      "description": "How the library is integrated into the application (e.g. client-side utility, backend worker)."
+    },
+    "distributionModel": {
+      "type": "string",
+      "enum": ["SaaS/Cloud Only", "Distributed Binary", "Mobile App", "Client-Side SDK", "Hybrid"],
+      "description": "How the SaaS software containing this library is distributed to users."
+    },
+    "modifiedOrUnmodified": {
+      "type": "string",
+      "enum": ["modified", "unmodified"],
+      "description": "Whether the internal engineering team has modified the source code of the library."
+    },
+    "linkedOrSeparateService": {
+      "type": "string",
+      "enum": ["linked", "separate_service", "unlinked_dependency"],
+      "description": "How the library is linked to proprietary code (e.g. statically linked, dynamically linked, run as a separate microservice)."
+    },
+    "attributionNeeded": {
+      "type": "boolean",
+      "description": "Whether the license requires attribution or copyright notices in the product UI or documentation."
+    },
+    "copyleftConcern": {
+      "type": "boolean",
+      "description": "Whether the license triggers reciprocal sharing obligations (e.g. GPL, AGPL, SSPL)."
+    },
+    "approvalStatus": {
+      "type": "string",
+      "enum": ["Approved", "Pending Review", "Rejected", "Escalated"],
+      "description": "The current legal approval status of the library for the specified use case."
+    }
+  },
+  "required": [
+    "package",
+    "licence",
+    "useCase",
+    "distributionModel",
+    "modifiedOrUnmodified",
+    "linkedOrSeparateService",
+    "attributionNeeded",
+    "copyleftConcern",
+    "approvalStatus"
+  ]
+}

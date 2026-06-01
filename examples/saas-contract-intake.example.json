@@ -1,0 +1,34 @@
+{
+  "requestOwner": "Alice Chen (Enterprise Sales)",
+  "customer": "Acme Health Systems",
+  "contractType": "MSA",
+  "dealStage": "Negotiation",
+  "requestedDeadline": "2026-06-15",
+  "customerSector": "Healthcare",
+  "regulatedCustomer": true,
+  "deploymentModel": "Single-Tenant Dedicated",
+  "dataCategories": [
+    "patient records",
+    "medical history",
+    "billing data",
+    "email",
+    "IP address"
+  ],
+  "aiFeaturesInvolved": [
+    "Patient Notes Co-Pilot",
+    "Medical Coding Assistant"
+  ],
+  "modelOrVendorProvidersInvolved": [
+    "Google Gemini",
+    "AWS Bedrock"
+  ],
+  "nonStandardTerms": [
+    "Customer demands 10x liability cap for security breaches",
+    "Model provider changes require 90 days notice"
+  ],
+  "redFlags": [
+    "Customer demands training opt-out verification audited by third-party weekly"
+  ],
+  "businessPosition": "Strategic healthcare customer, high ARR potential ($500k/year).",
+  "legalQuestion": "Can we agree to a 10x liability cap for data breaches under the HIPAA Addendum?"
+}

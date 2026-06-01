@@ -1,0 +1,12 @@
+{
+  "customer": "Apex Finance Corp",
+  "commitment": "Ensure all customer prompt data and completions are processed solely within the Germany region (EU Data Boundary) and never transferred to the US",
+  "sourceDocument": "DPA Exhibit C (Custom Data Residency Rider), Section 1.2",
+  "owner": "Elena Rostova (VP Infrastructure)",
+  "productArea": "Vector DB / LLM Gateway",
+  "operationalDependency": "Frankfurt AWS cluster must be configured to block US model API failovers",
+  "renewalRelevance": true,
+  "reviewDate": "2026-07-01",
+  "currentStatus": "at_risk",
+  "requiredAction": "Verify that the LLM gateway fails open/closed when Frankfurt APIs are down, instead of failing over to US east endpoints"
+}
