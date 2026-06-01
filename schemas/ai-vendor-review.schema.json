@@ -62,7 +62,7 @@
       "items": {
         "type": "string"
       },
-      "description": "Explicitly banned use cases or data types (e.g. do not enter PII or source code)."
+      "description": "Explicitly prohibited use cases or data types (e.g., do not input personal data or core source code)."
     },
     "conditions": {
       "type": "array",
