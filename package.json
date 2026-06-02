@@ -5,8 +5,13 @@
   "description": "Portfolio-grade legal engineering starter kit for AI-native SaaS companies.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "legal-ops-demo": "dist/src/cli.js"
+  },
   "scripts": {
     "build": "tsc",
+    "demo": "npm run build && node dist/src/cli.js",
+    "demo:json": "npm run build && node dist/src/cli.js --format json",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "validate:examples": "vitest run tests/schema-validation.test.ts"

@@ -32,7 +32,7 @@ The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troub
 ---
 
 ## 2. Test Suite Execution
-Running `npm run test` executes all unit tests verifying the deterministic risk-scoring engine.
+Running `npm run test` executes all unit tests verifying validation, deterministic risk scoring, action plans, contract playbooks, evidence packs, risk registers, and the demo CLI.
 
 ```text
 > @sebastianfoerste/ai-saas-legal-ops-starter-kit@1.0.0 test
@@ -42,13 +42,16 @@ The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troub
 
  RUN  v1.6.1 /Users/sebastian/Developer/ai-saas-legal-ops-starter-kit
 
- ✓ tests/risk-scoring.test.ts  (13 tests) 4ms
- ✓ tests/schema-validation.test.ts  (6 tests) 34ms
+ ✓ tests/risk-scoring.test.ts  (13 tests) 3ms
+ ✓ tests/action-plan.test.ts  (4 tests) 3ms
+ ✓ tests/contract-playbook.test.ts  (5 tests) 4ms
+ ✓ tests/evidence-pack.test.ts  (5 tests) 4ms
+ ✓ tests/risk-register.test.ts  (2 tests) 9ms
+ ✓ tests/schema-validation.test.ts  (6 tests) 25ms
+ ✓ tests/cli.test.ts  (5 tests) 42ms
 
- Test Files  2 passed (2)
-      Tests  19 passed (19)
-   Start at  2026-06-01 21:45:39
-   Duration  280ms (transform 49ms, setup 0ms, collect 89ms, tests 38ms)
+ Test Files  7 passed (7)
+      Tests  40 passed (40)
 ```
 
 ---
@@ -62,3 +65,27 @@ Running `npm run typecheck` runs strict TypeScript checks over the codebase to e
 
 (Command completed with exit code 0 and no output, indicating all types are valid.)
 ```
+
+---
+
+## 4. End-to-End Demo CLI
+Running `npm run demo` builds the package and prints a Markdown report from bundled public-safe examples.
+
+```text
+> @sebastianfoerste/ai-saas-legal-ops-starter-kit@1.0.0 demo
+> npm run build && node dist/src/cli.js
+
+# AI SaaS Legal Ops Demo Report
+
+- Examples Valid: 6/6
+- Portfolio Summary: 6 matters reviewed. 6 matters are high-risk or escalated, and 6 matters require human review.
+
+## Matter Overview
+## Approval Queue
+## Top Blockers
+## Core Evidence Packs
+## Contract Playbook
+## Human Review Notice
+```
+
+Running `npm run demo:json` prints the same deterministic report as structured JSON.

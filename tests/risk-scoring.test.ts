@@ -215,4 +215,81 @@ describe('Deterministic Risk-Scoring Engine Tests', () => {
     expect(result.level).toBe('escalate');
     expect(result.reasons.some(r => r.toLowerCase().includes('regulatory impact'))).toBe(true);
   });
+
+  test('should trigger high risk when fintech customer lacks DORA exit strategy', () => {
+    const data = {
+      customer: "Swiss Fintech",
+      customerSector: "Finance",
+      regulatedCustomer: false,
+      dataCategories: ["user accounts"]
+    };
+    const result = calculateRisk('SaaSContractIntake', data);
+    expect(result.level).toBe('high');
+    expect(result.reasons.some(r => r.includes('lacks a documented exit strategy'))).toBe(true);
+  });
+
+  test('should trigger medium risk when fintech customer has pending DORA exit strategy', () => {
+    const data = {
+      customer: "Swiss Fintech",
+      customerSector: "Software",
+      customerSegment: "DORA Markets",
+      regulatedCustomer: false,
+      dataCategories: ["user accounts"],
+      exitStrategy: "pending"
+    };
+    const result = calculateRisk('SaaSContractIntake', data);
+    expect(result.level).toBe('medium');
+    expect(result.reasons.some(r => r.includes('DORA exit strategy is incomplete'))).toBe(true);
+  });
+
+  test('should trigger high risk when AI vendor lacks copyright indemnity', () => {
+    const data = {
+      vendor: "Base LLM Inc",
+      tool: "Base Generator",
+      useCase: "drafting",
+      businessOwner: "Bob",
+      dataEntered: ["code"],
+      retentionPosition: "30 days",
+      trainingOnCustomerData: false,
+      approvedUse: true,
+      copyrightIndemnity: false
+    };
+    const result = calculateRisk('AIVendorReview', data);
+    expect(result.level).toBe('high');
+    expect(result.reasons.some(r => r.includes('does not provide copyright infringement indemnity'))).toBe(true);
+  });
+
+  test('should trigger medium risk when AI vendor training filters are unvetted', () => {
+    const data = {
+      vendor: "Base LLM Inc",
+      tool: "Base Generator",
+      useCase: "drafting",
+      businessOwner: "Bob",
+      dataEntered: ["code"],
+      retentionPosition: "30 days",
+      trainingOnCustomerData: false,
+      approvedUse: true,
+      copyrightIndemnity: true,
+      trainingFilterSources: ["none"]
+    };
+    const result = calculateRisk('AIVendorReview', data);
+    expect(result.level).toBe('medium');
+    expect(result.reasons.some(r => r.includes('fails to document robust training dataset filtering'))).toBe(true);
+  });
+
+  test('should detect EPL/MPL/EUPL weak copyleft licenses', () => {
+    const data = {
+      package: "mpl-parser",
+      licence: "MPL-2.0",
+      useCase: "linking",
+      distributionModel: "Client-Side SDK",
+      modifiedOrUnmodified: "unmodified",
+      linkedOrSeparateService: "separate",
+      attributionNeeded: true,
+      copyleftConcern: false
+    };
+    const result = calculateRisk('OpenSourceReview', data);
+    expect(result.level).toBe('medium');
+    expect(result.reasons.some(r => r.includes('Weak copyleft reciprocal license detected'))).toBe(true);
+  });
 });

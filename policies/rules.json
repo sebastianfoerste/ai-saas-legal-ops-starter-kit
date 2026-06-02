@@ -1,0 +1,16 @@
+[
+  {
+    "id": "rule.custom_dora_test",
+    "name": "Custom DORA Sector Verification",
+    "schemaTypes": ["*"],
+    "level": "escalate",
+    "conditions": [
+      {
+        "field": "customerSector",
+        "operator": "equals",
+        "value": "custom_dora_test"
+      }
+    ],
+    "message": "Custom DORA sector test rule triggered escalation"
+  }
+]
