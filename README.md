@@ -1,20 +1,21 @@
 # AI SaaS Legal Ops Starter Kit
 
-### *A public-safe legal engineering starter kit for building the first legal operating layer inside an AI-native SaaS company.*
+A public-safe starter kit for the first legal operating layer inside an AI-native SaaS company. It models recurring legal workflows as schemas, templates, deterministic risk checks and review gates.
 
-## Why This Matters
+## Standard Output Contract
 
-**Legal teams should not become ticket queues. They should become internal product teams that expose reusable legal workflows to sales, product, privacy, security, and leadership.**
+The scoring engine parses payloads and outputs structured data representing the matter's status and trigger conditions:
 
-In high-growth AI-native SaaS companies, traditional manual contracting, manual privacy reviews, and siloed compliance assessments create operational bottlenecks. By treating legal workflows as structured data validated by JSON schemas and evaluated via deterministic rule engines, legal engineering enables companies to scale fast, enforce regulatory boundaries, and maintain a machine-readable audit trail.
-
-## What This Proves
-
-This is a public-safe blueprint for the first legal operating layer inside an AI-native SaaS company. It models eight core workflows, namely contract intake, DPA triage, AI vendor review, open-source review, customer-commitment tracking, product-launch intake, board risk reporting and escalation, as strict JSON schemas with deterministic risk scoring and required human-review gates. The aim is to treat legal work as structured, testable infrastructure that sales, product and security can run for themselves, with consequential decisions routed to a lawyer.
-
-## Why this matters for a General Counsel role
-
-A first legal hire at an AI-native SaaS company should design the legal operating system: intake, templates, escalation paths, risk registers, customer commitments, privacy positions, AI vendor controls, board reporting and external counsel strategy. This repository demonstrates how that operating system can be expressed as structured workflows rather than informal legal inbox traffic.
+```json
+{
+  "level": "escalate",
+  "reasons": [
+    "AI Vendor trains base models on customer data inputs",
+    "Contains sensitive or high-risk data categories: patient records, medical history",
+    "Non-standard retention position: Indefinite retention of customer inputs for fine-tuning"
+  ]
+}
+```
 
 ## Core Workflows
 
@@ -96,21 +97,6 @@ npm run test
 npm run typecheck
 ```
 
-## Standard Output Contract
-
-The scoring engine parses payloads and outputs structured data representing the matter's status and trigger conditions:
-
-```json
-{
-  "level": "escalate",
-  "reasons": [
-    "AI Vendor trains base models on customer data inputs",
-    "Contains sensitive or high-risk data categories: patient records, medical history",
-    "Non-standard retention position: Indefinite retention of customer inputs for fine-tuning"
-  ]
-}
-```
-
 ## Human Review Rule
 
 > [!IMPORTANT]
@@ -120,35 +106,9 @@ The scoring engine parses payloads and outputs structured data representing the 
 
 All inputs, examples and test data in this repository are **strictly synthetic and public-safe**. They contain no client data, personal data, commercial secrets or privileged legal communication. See [data-boundary-policy.md](policies/data-boundary-policy.md).
 
-## Relevance for AI-Native SaaS Companies
+## What this does not do
 
-AI-native platforms process significant amounts of client data through external model APIs. This repository implements governance infrastructure designed to:
-
-* Enforce EU data-boundary positions by ensuring vector and API requests do not fail over to unapproved hosting regions.
-* Prevent model contamination by blocking vendors who train base models on prompt inputs.
-* Classify releases under incoming legislation such as the EU AI Act.
-* Preserve a customer commitment register so sales, product, security and legal know which promises have been made.
-
-## How to Run
-
-1. Install Node.js v18+ and npm.
-2. Install dependencies:
-
-   ```bash
-   npm install
-   ```
-
-3. Run tests:
-
-   ```bash
-   npm run test
-   ```
-
-4. Run type check:
-
-   ```bash
-   npm run typecheck
-   ```
+This is not legal advice, not a filing tool and not autonomous legal approval. It is a public-safe workflow scaffold for supervised legal operations.
 
 ## License
 
