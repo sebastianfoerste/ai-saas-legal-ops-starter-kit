@@ -12,7 +12,7 @@ This repository replaces the bottleneck with an **automated triage pipeline**:
 *   Evaluating risk levels deterministically (TypeScript rules) to auto-approve low-risk matters and route high-risk cases directly to counsel.
 
 ## 3. Why It Matters for an AI-Native SaaS General Counsel
-An AI-native SaaS company (such as *Dust* or *Vercel*) processes large quantities of data through third-party APIs and custom models. A General Counsel in this role cannot just write policy memos; they must build boundaries directly into the product lifecycle. This kit implements:
+An AI-native SaaS company processes large quantities of data through third-party APIs and custom models. A General Counsel in this role cannot just write policy memos; they must build boundaries directly into the product lifecycle. This kit implements:
 *   **AI Vendor Governance**: Automatically blocking vendors that train base models on prompt inputs.
 *   **EU Data Boundaries**: Flagging cloud transfers that violate residency commitments.
 *   **Compliance Gates**: Automatically triaging launches against the EU AI Act.
