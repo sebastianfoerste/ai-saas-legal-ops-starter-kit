@@ -10,12 +10,7 @@ In high-growth AI-native SaaS companies, traditional manual contracting, manual 
 
 ## What This Proves
 
-This repository demonstrates:
-
-1. **Contracts as Code**: Defining business constraints for intakes, DPA structures and AI vendor reviews using strict, testable JSON Schemas.
-2. **Deterministic Risk Scoring**: Building automated risk classification models that isolate and escalate high-risk matters such as model training on customer data, GDPR special category processing or unvetted public claims.
-3. **Self-Serve Playbooks**: Turning operational controls into templates that business owners can complete and run through automated validation checks.
-4. **Recruiter and Engineering Visible Excellence**: Professional TypeScript execution, Vitest suites and a structured legal operating model for AI-native platforms.
+This is a public-safe blueprint for the first legal operating layer inside an AI-native SaaS company. It models eight core workflows, namely contract intake, DPA triage, AI vendor review, open-source review, customer-commitment tracking, product-launch intake, board risk reporting and escalation, as strict JSON schemas with deterministic risk scoring and required human-review gates. The aim is to treat legal work as structured, testable infrastructure that sales, product and security can run for themselves, with consequential decisions routed to a lawyer.
 
 ## Why this matters for a General Counsel role
 
@@ -34,7 +29,7 @@ This starter kit covers 8 critical legal operations workflows:
 7. **Board Legal Risk Memo**: Leadership-level summary of active exposures, AI vendor status and compliance posture.
 8. **Escalation Rules**: Deterministic routing when a matter requires General Counsel review.
 
-## Dust-style AI operator relevance
+## Relevance for AI-native platforms
 
 For AI operator companies, the legal layer needs to move at product speed. This kit models legal workflows as reusable internal product infrastructure: self-serve where possible, escalated where necessary and always auditable. It is especially relevant to contract intake agents, DPA triage, AI vendor review, customer commitment registers, product counsel routing and board-ready risk reporting with human approval gates.
 
