@@ -8,6 +8,8 @@ import {
   renderDemoReportMarkdown,
   runLegalOpsDemo
 } from '../src/cli.js';
+import { deleteMatter } from '../src/storage.js';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -201,7 +203,6 @@ describe('Legal Ops Demo CLI', () => {
     expect(showOutputUpdated).toContain('Reviewer Bot');
 
     // Clean up file manually to avoid test pollution
-    const { deleteMatter } = require('../dist/src/storage.js');
     deleteMatter(testId);
   });
 });
