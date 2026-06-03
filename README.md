@@ -8,9 +8,7 @@
 
 ### A public-safe legal operating layer for AI-native SaaS
 
-## Why This Matters
-
-This repository is a functional compliance operating system for high-growth enterprise AI SaaS platforms. It moves legal oversight from reactive documents and inbox traffic into structured data schemas, deterministic risk rules and review-gated workflows. The result is contract intake classification, DPA risk triage, AI vendor review and product launch governance with a machine-readable audit trail.
+This is a working legal operating layer for an AI-native SaaS company. It turns a first legal hire's recurring work into typed schemas, deterministic risk rules and review-gated workflows: SaaS contract intake, DPA and privacy triage, AI vendor and zero-retention review, open-source licence checks, customer commitments, product launch governance and a board risk register. It runs from the command line on synthetic data and produces a machine-readable audit trail. A qualified lawyer supervises every consequential output. It does not provide legal advice.
 
 ## What This Proves
 
@@ -28,12 +26,6 @@ This repository demonstrates:
 10. **Engineering Legibility**: Typed workflows, Vitest tests, and clear run paths that engineering and legal can inspect together.
 
 See [What This Proves for a General Counsel Candidate](what-this-proves.md) and [Sample Output Logs](sample-output.md) for more details.
-
----
-
-## Why This Matters for a General Counsel Role
-
-A first legal hire at an AI-native SaaS company should design the legal operating system: intake, templates, escalation paths, risk registers, customer commitments, privacy positions, AI vendor controls, board reporting, and external counsel strategy. This repository demonstrates how that operating system can be expressed as structured workflows rather than informal, un-audited legal inbox traffic.
 
 ---
 
