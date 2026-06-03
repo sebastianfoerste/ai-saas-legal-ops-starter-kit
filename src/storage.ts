@@ -16,6 +16,13 @@ export interface PersistedMatter {
   dueDate?: string;
 }
 
+export const MATTER_STATUS_VALUES = ['draft', 'pending_review', 'approved', 'rejected'] as const;
+const FINAL_STATUSES: PersistedMatter['status'][] = ['approved', 'rejected'];
+
+export function isMatterStatus(status: unknown): status is PersistedMatter['status'] {
+  return typeof status === 'string' && (MATTER_STATUS_VALUES as readonly string[]).includes(status);
+}
+
 const getStorageDir = () => {
   const cwd = process.cwd();
   const isDashboard = cwd.endsWith('/dashboard') || cwd.endsWith('\\dashboard') || cwd.includes('/dashboard/') || cwd.includes('\\dashboard\\');
@@ -83,19 +90,34 @@ export function transitionMatterStatus(
   id: string,
   newStatus: PersistedMatter['status'],
   actor: string,
-  notes: string
+  notes: string,
+  actorRole?: string
 ): PersistedMatter {
   const matter = loadMatter(id);
   if (!matter) {
     throw new Error(`Matter with ID ${id} not found`);
   }
 
-  // Enforce simple validation rules
+  if (!isMatterStatus(newStatus)) {
+    throw new Error(`Unsupported matter status: ${newStatus}`);
+  }
+
+  if (!notes.trim()) {
+    throw new Error('Review notes are required for every status transition');
+  }
+
+  if (FINAL_STATUSES.includes(matter.status)) {
+    throw new Error(`Matter ${id} is already finalized as ${matter.status}`);
+  }
+
+  if (FINAL_STATUSES.includes(newStatus) && actorRole !== 'General Counsel') {
+    throw new Error('Only the General Counsel role may approve or reject a matter');
+  }
+
   if (matter.status === newStatus) {
     return matter;
   }
 
-  // Record transition
   matter.status = newStatus;
   matter.auditLog.push({
     timestamp: new Date().toISOString(),

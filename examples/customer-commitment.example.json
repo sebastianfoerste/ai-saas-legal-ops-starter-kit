@@ -1,12 +1,12 @@
 {
-  "customer": "Apex Finance Corp",
-  "commitment": "Ensure all customer prompt data and completions are processed solely within the Germany region (EU Data Boundary) and never transferred to the US",
-  "sourceDocument": "DPA Exhibit C (Custom Data Residency Rider), Section 1.2",
-  "owner": "Elena Rostova (VP Infrastructure)",
-  "productArea": "Vector DB / LLM Gateway",
-  "operationalDependency": "Frankfurt AWS cluster must be configured to block US model API failovers",
+  "customer": "Northstar Bank",
+  "commitment": "Customer workspace data, prompts, embeddings and agent logs remain within the EU processing boundary with no US model-provider failover.",
+  "sourceDocument": "DPA Data Residency Rider, Section 2.1",
+  "owner": "Infrastructure Lead",
+  "productArea": "LLM gateway and retrieval layer",
+  "operationalDependency": "EU-only model gateway route and disabled fallback to US inference endpoints",
   "renewalRelevance": true,
   "reviewDate": "2026-07-01",
   "currentStatus": "at_risk",
-  "requiredAction": "Verify that the LLM gateway fails open/closed when Frankfurt APIs are down, instead of failing over to US east endpoints"
+  "requiredAction": "Confirm failover behavior, support access scope and model-provider logging before renewal call."
 }

@@ -1,29 +1,34 @@
 {
-  "vendor": "Synthetix AI Inc.",
-  "tool": "TranslateMaster Pro",
-  "useCase": "Translating client contracts and product documentation",
-  "businessOwner": "Marcus Vance (Localization Team)",
+  "vendor": "Frontier Model Provider",
+  "tool": "Enterprise LLM API with zero data retention addendum",
+  "useCase": "Customer workspace agents, retrieval answers, summarisation and workflow automation",
+  "businessOwner": "Head of Product Operations",
   "dataEntered": [
-    "customer agreements",
-    "personal identifiers",
-    "proprietary source code comments"
+    "customer workspace documents",
+    "prompt inputs",
+    "connector metadata",
+    "agent execution traces"
   ],
-  "outputUse": "Shared directly with international partners and uploaded to customer portals",
-  "retentionPosition": "Indefinite retention of customer inputs for fine-tuning",
-  "trainingOnCustomerData": true,
+  "outputUse": "Returned inside the customer workspace and logged for customer-visible audit review",
+  "retentionPosition": "30-day abuse monitoring logs unless zero data retention addendum is approved",
+  "trainingOnCustomerData": false,
   "subprocessors": [
-    "unverified third party host in non-EU country"
+    "unverified regional logging vendor in non-EU country"
   ],
   "securityMaterial": [
-    "Self-assessment questionnaire only"
+    "SOC 2 Type II report",
+    "ISO 27001 certificate",
+    "zero data retention addendum pending signature"
   ],
   "approvedUse": false,
   "prohibitedUse": [
-    "Do not use with customer health data",
-    "Do not input credit card details"
+    "Do not use with special category data until DPO review is complete",
+    "Do not use for customer-facing regulated decisions"
   ],
   "conditions": [
-    "Require signing of standard DPA",
-    "Require custom training opt-out agreement"
-  ]
+    "ZDR addendum signed before production traffic",
+    "Security review confirms model logging and deletion controls",
+    "Legal records approved use cases in the AI vendor register"
+  ],
+  "copyrightIndemnity": false
 }

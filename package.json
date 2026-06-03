@@ -12,6 +12,9 @@
     "build": "tsc",
     "demo": "npm run build && node dist/src/cli.js",
     "demo:json": "npm run build && node dist/src/cli.js --format json",
+    "dashboard:dev": "npm run build && npm --prefix dashboard run dev",
+    "dashboard:lint": "npm --prefix dashboard run lint",
+    "dashboard:build": "npm run build && npm --prefix dashboard run build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "validate:examples": "vitest run tests/schema-validation.test.ts"

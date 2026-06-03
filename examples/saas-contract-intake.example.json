@@ -1,34 +1,35 @@
 {
-  "requestOwner": "Alice Chen (Enterprise Sales)",
-  "customer": "Acme Health Systems",
+  "requestOwner": "Enterprise Sales Lead",
+  "customer": "Atlas Metrics Bank",
   "contractType": "MSA",
   "dealStage": "Negotiation",
   "requestedDeadline": "2026-06-15",
-  "customerSector": "Healthcare",
+  "customerSector": "Finance",
   "regulatedCustomer": true,
   "deploymentModel": "Single-Tenant Dedicated",
   "dataCategories": [
-    "patient records",
-    "medical history",
-    "billing data",
-    "email",
-    "IP address"
+    "employee names",
+    "workspace documents",
+    "prompt inputs",
+    "security logs",
+    "banking workflow metadata"
   ],
   "aiFeaturesInvolved": [
-    "Patient Notes Co-Pilot",
-    "Medical Coding Assistant"
+    "Knowledge agent over customer documents",
+    "Workflow automation agent"
   ],
   "modelOrVendorProvidersInvolved": [
-    "Google Gemini",
-    "AWS Bedrock"
+    "OpenAI Enterprise API",
+    "Anthropic Enterprise API"
   ],
   "nonStandardTerms": [
-    "Customer demands 10x liability cap for security breaches",
-    "Model provider changes require 90 days notice"
+    "Customer asks for 10x liability cap for security breach claims",
+    "Customer requests prior notice for model provider changes"
   ],
   "redFlags": [
-    "Customer demands training opt-out verification audited by third-party weekly"
+    "Customer demands zero data retention verification audited by third party every quarter"
   ],
-  "businessPosition": "Strategic healthcare customer, high ARR potential ($500k/year).",
-  "legalQuestion": "Can we agree to a 10x liability cap for data breaches under the HIPAA Addendum?"
+  "businessPosition": "Strategic regulated customer with expansion potential across several teams.",
+  "legalQuestion": "Can we accept the security cap and model-provider notice language without creating inconsistent customer commitments?",
+  "exitStrategy": "pending"
 }

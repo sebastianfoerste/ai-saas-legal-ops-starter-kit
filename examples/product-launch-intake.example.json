@@ -1,33 +1,37 @@
 {
-  "feature": "AutoDraft Agent v2",
-  "owner": "Sarah Jenkins (Director of AI Product)",
+  "feature": "Workspace Agent Builder for Regulated Teams",
+  "owner": "Director of AI Product",
   "targetDate": "2026-06-30",
-  "customerSegment": "Enterprise (includes Banks and Regulated Tech)",
+  "customerSegment": "Enterprise regulated teams in finance, healthcare and telecom",
   "jurisdictions": [
-    "US",
     "EU",
+    "US",
     "UK"
   ],
   "dataInvolved": [
-    "user credentials",
-    "uploaded bank statements",
+    "workspace documents",
+    "prompt inputs",
+    "tool execution metadata",
     "customer support transcripts"
   ],
   "aiFeatures": [
-    "Gemini 1.5 Flash (fine-tuned on anonymized logs)"
+    "Configurable agents connected to company knowledge and workflow tools",
+    "Human approval step before consequential external actions"
   ],
   "publicClaims": [
-    "Our fine-tuned model predicts billing errors with 99.8% accuracy and has zero hallucination rate"
+    "Teams can reduce manual triage time by 70 percent after implementation"
   ],
   "customerCommitmentsAffected": [
-    "Apex Finance Corp's custom Germany-only processing restriction"
+    "Northstar Bank EU processing commitment",
+    "Atlas Metrics Bank model-provider notice covenant"
   ],
-  "privacyImpact": "Requires updated privacy notice and consent check-box for using session inputs to run fine-tuning checks.",
-  "contractImpact": "Requires updating MSA Exhibit A (Feature List) and AI Vendor Use Policy",
-  "regulatoryImpact": "Triggers high-risk assessment under the EU AI Act due to credit scoring implications and potential bias audits",
+  "privacyImpact": "Requires DPIA screening, transfer assessment update and privacy notice review.",
+  "contractImpact": "Requires MSA AI feature description, DPA subprocessors refresh and customer commitment register update.",
+  "regulatoryImpact": "DORA, EU AI Act transparency and regulated-sector governance review required before broad release.",
   "requiredApprovals": [
     "DPO Sign-off",
-    "VP Engineering Security",
+    "Security Review",
+    "Product Owner Approval",
     "GC Approval"
   ]
 }

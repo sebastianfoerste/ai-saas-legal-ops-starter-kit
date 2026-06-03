@@ -1,8 +1,6 @@
 # Illustrative Terminal Command Output
 
-This document contains illustrative terminal output logs for the project's verification scripts. These logs show the expected behavior when running validation, testing, and typecheck commands locally.
-
----
+This document contains illustrative terminal output logs for the project's verification scripts. These logs show the expected behavior when running validation, testing, typecheck, and dashboard commands locally.
 
 ## 1. Example Schema Validation
 Running `npm run validate:examples` validates all JSON templates in `examples/` against the JSON schemas in `schemas/`.
@@ -29,8 +27,6 @@ The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troub
    Duration  200ms (transform 22ms, setup 0ms, collect 39ms, tests 27ms)
 ```
 
----
-
 ## 2. Test Suite Execution
 Running `npm run test` executes all unit tests verifying validation, deterministic risk scoring, action plans, contract playbooks, evidence packs, risk registers, and the demo CLI.
 
@@ -42,19 +38,18 @@ The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troub
 
  RUN  v1.6.1 /Users/sebastian/Developer/ai-saas-legal-ops-starter-kit
 
- ✓ tests/risk-scoring.test.ts  (13 tests) 3ms
- ✓ tests/action-plan.test.ts  (4 tests) 3ms
+ ✓ tests/risk-scoring.test.ts  (18 tests) 5ms
  ✓ tests/contract-playbook.test.ts  (5 tests) 4ms
- ✓ tests/evidence-pack.test.ts  (5 tests) 4ms
+ ✓ tests/action-plan.test.ts  (4 tests) 4ms
+ ✓ tests/evidence-pack.test.ts  (5 tests) 5ms
+ ✓ tests/persistence.test.ts  (6 tests) 9ms
  ✓ tests/risk-register.test.ts  (2 tests) 9ms
- ✓ tests/schema-validation.test.ts  (6 tests) 25ms
- ✓ tests/cli.test.ts  (5 tests) 42ms
+ ✓ tests/schema-validation.test.ts  (6 tests) 28ms
+ ✓ tests/cli.test.ts  (12 tests) 55ms
 
- Test Files  7 passed (7)
-      Tests  40 passed (40)
+ Test Files  8 passed (8)
+      Tests  58 passed (58)
 ```
-
----
 
 ## 3. TypeScript Typecheck
 Running `npm run typecheck` runs strict TypeScript checks over the codebase to ensure zero compilation or declaration errors.
@@ -66,8 +61,6 @@ Running `npm run typecheck` runs strict TypeScript checks over the codebase to e
 (Command completed with exit code 0 and no output, indicating all types are valid.)
 ```
 
----
-
 ## 4. End-to-End Demo CLI
 Running `npm run demo` builds the package and prints a Markdown report from bundled public-safe examples.
 
@@ -78,7 +71,7 @@ Running `npm run demo` builds the package and prints a Markdown report from bund
 # AI SaaS Legal Ops Demo Report
 
 - Examples Valid: 6/6
-- Portfolio Summary: 6 matters reviewed. 6 matters are high-risk or escalated, and 6 matters require human review.
+- Portfolio Summary: 6 matters reviewed. 5 matters are high-risk or escalated, and 6 matters require human review.
 
 ## Matter Overview
 ## Approval Queue
@@ -89,3 +82,14 @@ Running `npm run demo` builds the package and prints a Markdown report from bund
 ```
 
 Running `npm run demo:json` prints the same deterministic report as structured JSON.
+
+## 5. Dashboard Verification
+Running `npm run dashboard:lint` and `npm run dashboard:build` verifies the Next.js reviewer portal in `dashboard/`.
+
+```text
+> @sebastianfoerste/ai-saas-legal-ops-starter-kit@1.0.0 dashboard:build
+> npm run build && npm --prefix dashboard run build
+
+✓ Compiled successfully in 1000ms
+✓ Generating static pages (7/7)
+```
