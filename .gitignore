@@ -9,6 +9,9 @@ coverage/
 # Production
 dist/
 
+# Local demo persistence
+.storage/
+
 # OS Files
 .DS_Store
 Thumbs.db

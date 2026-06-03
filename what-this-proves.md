@@ -7,6 +7,7 @@ Traditional legal teams operate reactively via email inboxes. This repository de
 - **Typed Workflows and Schemas**: SaaS contract intake, DPA triage, AI vendor reviews, open-source compliance, customer commitments, and product launches are defined as strict TypeScript schemas.
 - **Deterministic Validation & Triage**: Every request is validated against its schema (using JSON Schema/Ajv) and triaged programmatically through rules (such as custom data retention, GDPR special category data, copyleft licenses). This makes routine intake self-serve and routes high-stakes issues directly to the GC.
 - **Auditable Evidence and Action Plans**: Escalated matters automatically generate Action Plans detailing required approvals, blockers, and evidence to collect.
+- **Reviewer-Facing Dashboard**: The Next.js portal turns the rules engine into an operational review surface with seeded Dust GC demo matters, role-specific views, evidence readiness, audit history, and General Counsel decision gates.
 
 ## 2. Technical Alignment with Core Engineering and Product
 A General Counsel in an AI-native company must speak the same language as the engineering and product teams:

@@ -13,7 +13,7 @@ npm install
 ## Step 2: Explore Schemas & Examples (1 Minute)
 Open the schema definitions and see how business terms are translated into validation rules:
 *   `schemas/saas-contract-intake.schema.json` defines required fields for sales intakes.
-*   `examples/saas-contract-intake.example.json` represents a synthetic negotiation matter for *Acme Health Systems* with custom liability caps and AI features.
+*   `examples/saas-contract-intake.example.json` represents a synthetic negotiation matter for *Atlas Metrics Bank* with regulated-customer routing, custom liability caps, AI features, and a pending DORA exit strategy.
 
 ## Step 3: Run Example Validation (1 Minute)
 Run the validation script to verify all synthetic examples align perfectly with their JSON schemas:
@@ -29,7 +29,7 @@ npm run test
 ```
 This executes:
 1.  **Schema Validation Tests**: Confirms AJV properly parses formats.
-2.  **Risk Scoring Engine Tests**: Asserts that high-risk inputs (e.g. model training on customer data, GDPR special category health data, AGPL license type) correctly escalate to the General Counsel.
+2.  **Risk Scoring Engine Tests**: Asserts that high-risk inputs, for example model training on customer data, regulated customer status, sensitive data, and copyleft license type, correctly escalate to the General Counsel.
 3.  **Legal Action Plan Tests**: Confirms each risk score is converted into approvals, blockers, follow-ups, and evidence requests.
 4.  **Contract Playbook Tests**: Confirms SaaS contract deviations are converted into fallback positions, approvals, non-starters, and reviewer notes.
 5.  **AI Governance Evidence Pack Tests**: Confirms product launch, AI vendor, and DPA matters produce deterministic evidence packs and Markdown review output.
@@ -58,3 +58,6 @@ Open `tests/evidence-pack.test.ts` and inspect the `renderEvidencePackMarkdown` 
 
 ## Optional Demo Moment: Contract Playbook Renderer
 Open `tests/contract-playbook.test.ts` and inspect the `renderContractPlaybookMarkdown` assertion. It demonstrates how a negotiated SaaS contract intake can be converted into fallback positions, non-starters, approval requirements, and reviewer notes.
+
+## Optional Demo Moment: Reviewer Dashboard
+Run `npm run dashboard:dev`, open `http://localhost:3000`, and seed the Dust GC demo matters. The dashboard shows role-specific legal intake, evidence readiness, audit history, and General Counsel approval gates over the same deterministic rules used by the package.

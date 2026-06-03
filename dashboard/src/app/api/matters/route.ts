@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listMatters, saveMatter, type PersistedMatter } from '@core/storage';
+import { isMatterStatus, listMatters, saveMatter, type PersistedMatter } from '@core/storage';
 import { calculateRisk } from '@core/risk-scoring';
 import { validateJSON } from '@core/validate';
 import { createLegalActionPlan } from '@core/action-plan';
@@ -11,25 +11,42 @@ import * as path from 'path';
 export async function GET() {
   try {
     const matters = listMatters();
-    // Return sorted by recent audit log updates
-    const sorted = matters.sort((a, b) => {
+    const enriched = matters.map(matter => {
+      const risk = calculateRisk(matter.schemaType, matter.data);
+      const actionPlan = createLegalActionPlan(matter.schemaType, matter.data, { risk });
+      const evidencePack = createEvidencePack(matter.schemaType, matter.data, { actionPlan, risk });
+
+      return {
+        ...matter,
+        riskLevel: risk.level,
+        reviewGate: actionPlan.reviewGate,
+        evidenceReadiness: evidencePack.readiness
+      };
+    });
+
+    return NextResponse.json(enriched.sort((a, b) => {
       const aTime = a.auditLog[a.auditLog.length - 1]?.timestamp || '';
       const bTime = b.auditLog[b.auditLog.length - 1]?.timestamp || '';
       return bTime.localeCompare(aTime);
-    });
-    return NextResponse.json(sorted);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    }));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { id, name, schemaType, data, status = 'draft', actor = 'Web UI Wizard', notes = 'Created via Intake Wizard' } = body;
+    const { id, name, schemaType, data, actor = 'Web UI Wizard', notes = 'Created via Intake Wizard' } = body;
+    const status = body.status ?? 'draft';
 
     if (!id || !name || !schemaType || !data) {
       return NextResponse.json({ error: 'Missing required fields: id, name, schemaType, data' }, { status: 400 });
+    }
+
+    if (!isMatterStatus(status)) {
+      return NextResponse.json({ error: `Unsupported matter status: ${status}` }, { status: 400 });
     }
 
     // Try to load schema
@@ -77,7 +94,8 @@ export async function POST(request: Request) {
       evidencePack,
       contractPlaybook
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

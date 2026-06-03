@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'StrategyOS Legal Ops Dashboard | AI SaaS Governance Platform',
-  description: 'Self-serve legal operations, structured risk triaging, and real-time AI regulatory governance reporting for modern SaaS enterprises.',
+  title: 'AI SaaS Legal Portal | Dust GC Demo',
+  description: 'Self-serve legal intake, structured risk triage, evidence readiness, and General Counsel review gates for AI SaaS teams.',
 };
 
 export default function RootLayout({

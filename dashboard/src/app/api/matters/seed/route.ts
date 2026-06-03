@@ -5,42 +5,54 @@ import * as path from 'path';
 
 const SEED_MATTERS = [
   {
-    id: 'saas-contract-intake',
-    name: 'Enterprise SaaS MSA - SwissBank',
+    id: 'dust-saas-contract-intake',
+    name: 'Regulated workspace MSA',
     schemaType: 'SaaSContractIntake',
-    filename: 'saas-contract-intake.example.json'
+    filename: 'saas-contract-intake.example.json',
+    status: 'pending_review'
   },
   {
-    id: 'dpa-triage',
-    name: 'Customer Support Zendesk Triage',
+    id: 'dust-dpa-triage',
+    name: 'Enterprise agent DPA markup',
     schemaType: 'DPATriage',
-    filename: 'dpa-triage.example.json'
+    filename: 'dpa-triage.example.json',
+    status: 'pending_review'
   },
   {
-    id: 'ai-vendor-review',
-    name: 'Codegen AI Copilot Vendor Audit',
+    id: 'dust-ai-vendor-review',
+    name: 'Model provider ZDR review',
     schemaType: 'AIVendorReview',
-    filename: 'ai-vendor-review.example.json'
+    filename: 'ai-vendor-review.example.json',
+    status: 'pending_review'
   },
   {
-    id: 'open-source-review',
-    name: 'Weak Copyleft SDK Dependency Check',
+    id: 'dust-open-source-review',
+    name: 'Agent SDK licence check',
     schemaType: 'OpenSourceReview',
-    filename: 'open-source-review.example.json'
+    filename: 'open-source-review.example.json',
+    status: 'draft'
   },
   {
-    id: 'customer-commitment',
-    name: 'SLA Custom Commitment Rider',
+    id: 'dust-customer-commitment',
+    name: 'EU processing commitment',
     schemaType: 'CustomerCommitment',
-    filename: 'customer-commitment.example.json'
+    filename: 'customer-commitment.example.json',
+    status: 'pending_review'
   },
   {
-    id: 'product-launch-intake',
-    name: 'Automated Loan Underwriting Launch',
+    id: 'dust-product-launch-intake',
+    name: 'Regulated teams agent builder',
     schemaType: 'ProductLaunchIntake',
-    filename: 'product-launch-intake.example.json'
+    filename: 'product-launch-intake.example.json',
+    status: 'pending_review'
   }
-];
+] satisfies Array<{
+  id: string;
+  name: string;
+  schemaType: string;
+  filename: string;
+  status: PersistedMatter['status'];
+}>;
 
 export async function POST() {
   try {
@@ -56,13 +68,13 @@ export async function POST() {
           name: item.name,
           schemaType: item.schemaType,
           data,
-          status: item.id === 'saas-contract-intake' || item.id === 'product-launch-intake' ? 'pending_review' : 'draft',
+          status: item.status,
           auditLog: [
             {
               timestamp: new Date().toISOString(),
-              action: 'Matter initialized from starter kit template',
+              action: 'Synthetic Dust GC demo matter initialized',
               actor: 'System Seed',
-              notes: 'Pre-populated example data'
+              notes: 'Public-safe synthetic example for portfolio review'
             }
           ]
         };
@@ -72,7 +84,8 @@ export async function POST() {
     }
 
     return NextResponse.json({ success: true, seeded: created });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

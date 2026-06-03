@@ -1,46 +1,44 @@
 {
-  "productOrService": "StrategyOS Enterprise Agent",
+  "productOrService": "AI agent workspace",
   "role": "processor",
   "dataSubjects": [
-    "employees",
+    "customer employees",
     "contractors",
-    "end users"
+    "workspace guests"
   ],
   "personalDataCategories": [
     "names",
     "email addresses",
-    "employee IDs",
-    "user prompt inputs"
+    "workspace documents",
+    "prompt inputs",
+    "tool activity logs"
   ],
-  "specialCategoryData": [
-    "health data",
-    "biometric data"
-  ],
+  "specialCategoryData": [],
   "subprocessors": [
     {
-      "name": "Pinecone Systems Inc.",
-      "location": "US",
-      "purpose": "Vector Search Hosting"
+      "name": "Frontier Model Provider",
+      "location": "non-EU United States",
+      "purpose": "LLM inference"
     },
     {
-      "name": "Anthropic PBC",
-      "location": "US",
-      "purpose": "LLM Inference API"
+      "name": "Vector Hosting Provider",
+      "location": "EU",
+      "purpose": "retrieval index hosting"
     }
   ],
   "transferLocations": [
-    "US",
-    "EU"
+    "EU",
+    "US"
   ],
-  "retentionPeriod": "Indefinite or custom retention",
-  "deletionProcess": "Delete customer data upon 90 days request",
+  "retentionPeriod": "Term of agreement plus 30 days",
+  "deletionProcess": "Certified deletion within 30 days after customer request",
   "securityAnnexStatus": "Custom Customer Requirements",
   "customerRequestedChanges": [
-    "Liability caps on GDPR breach notifications",
-    "Right to audit our physical server locations"
+    "Customer asks for custom audit rights over model providers",
+    "Customer asks for prior notice of every subprocessor change"
   ],
-  "riskLevel": "escalate",
+  "riskLevel": "high",
   "missingFacts": [
-    "Clarify whether subprocessor contracts contain Standard Contractual Clauses (SCCs)"
+    "Confirm whether zero data retention is active for the model provider tenant"
   ]
 }

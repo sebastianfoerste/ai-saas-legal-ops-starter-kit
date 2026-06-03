@@ -71,6 +71,100 @@ describe('Legal Ops Persistence and State Machine Tests', () => {
     expect(updated.auditLog[1].notes).toBe('Submitting for GC signoff');
   });
 
+  test('should require General Counsel role for final decisions', () => {
+    expect(() =>
+      transitionMatterStatus(testMatterId, 'approved', 'Privacy Reviewer', 'Looks acceptable', 'DPO Reviewer')
+    ).toThrow('Only the General Counsel role may approve or reject a matter');
+
+    const updated = transitionMatterStatus(
+      testMatterId,
+      'approved',
+      'General Counsel',
+      'Approved with recorded evidence limitations',
+      'General Counsel'
+    );
+
+    expect(updated.status).toBe('approved');
+    expect(updated.auditLog[updated.auditLog.length - 1].actor).toBe('General Counsel');
+  });
+
+  test('should reject unsupported matter status transitions', () => {
+    const matterId = 'test-matter-status-guard';
+    try {
+      saveMatter({
+        id: matterId,
+        name: 'Status Guard Matter',
+        schemaType: 'SaaSContractIntake',
+        data: {
+          customer: 'Status Guard Corp',
+          requestOwner: 'Tester',
+          contractType: 'MSA',
+          dealStage: 'Negotiation',
+          requestedDeadline: '2026-06-30',
+          regulatedCustomer: false,
+          dataCategories: ['emails'],
+          aiFeaturesInvolved: []
+        },
+        status: 'draft',
+        auditLog: [
+          {
+            timestamp: new Date().toISOString(),
+            action: 'Create matter',
+            actor: 'Alice',
+            notes: 'Initial draft'
+          }
+        ]
+      });
+
+      expect(() =>
+        transitionMatterStatus(
+          matterId,
+          'archived' as PersistedMatter['status'],
+          'Legal Ops',
+          'Unsupported status check'
+        )
+      ).toThrow('Unsupported matter status: archived');
+    } finally {
+      deleteMatter(matterId);
+    }
+  });
+
+  test('should require a written review note for every status transition', () => {
+    const matterId = 'test-matter-note-gate';
+    try {
+      saveMatter({
+        id: matterId,
+        name: 'Review Note Gate Matter',
+        schemaType: 'SaaSContractIntake',
+        data: {
+          customer: 'Note Gate Corp',
+          requestOwner: 'Tester',
+          contractType: 'MSA',
+          dealStage: 'Negotiation',
+          requestedDeadline: '2026-06-30',
+          regulatedCustomer: false,
+          dataCategories: ['emails'],
+          aiFeaturesInvolved: []
+        },
+        status: 'draft',
+        auditLog: [
+          {
+            timestamp: new Date().toISOString(),
+            action: 'Create matter',
+            actor: 'Alice',
+            notes: 'Initial draft'
+          }
+        ]
+      });
+
+      expect(() =>
+        transitionMatterStatus(matterId, 'pending_review', 'Legal Ops', '   ')
+      ).toThrow('Review notes are required for every status transition');
+    } finally {
+      deleteMatter(matterId);
+    }
+  });
+
   test('should dynamically load and evaluate rules from policies/rules.json', () => {
     // The policy file is populated with rule.custom_dora_test matching customerSector = 'custom_dora_test'
     const data = {

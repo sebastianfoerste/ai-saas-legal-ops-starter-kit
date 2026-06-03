@@ -1,11 +1,11 @@
 {
-  "package": "super-vector-db-connector",
-  "licence": "AGPL-3.0",
-  "useCase": "Connecting the core agent backend to local vector index instances",
+  "package": "collab-agent-sdk",
+  "licence": "MPL-2.0",
+  "useCase": "Embeds collaborative agent runtime helpers into the customer-facing SDK",
   "distributionModel": "Client-Side SDK",
   "modifiedOrUnmodified": "modified",
   "linkedOrSeparateService": "linked",
   "attributionNeeded": true,
-  "copyleftConcern": true,
-  "approvalStatus": "Escalated"
+  "copyleftConcern": false,
+  "approvalStatus": "Pending Review"
 }

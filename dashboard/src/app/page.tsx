@@ -1,528 +1,794 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-// Matter structure matching persistence
+type MatterStatus = 'draft' | 'pending_review' | 'approved' | 'rejected';
+type RiskLevel = 'low' | 'medium' | 'high' | 'escalate';
+type ReviewGate = 'self-serve' | 'legal-review' | 'senior-legal-review' | 'gc-review';
+type EvidenceReadiness = 'ready' | 'review_needed' | 'blocked';
+type UserRole = 'Sales Sponsor' | 'DPO Reviewer' | 'General Counsel';
+type SchemaType =
+  | 'SaaSContractIntake'
+  | 'DPATriage'
+  | 'AIVendorReview'
+  | 'OpenSourceReview'
+  | 'CustomerCommitment'
+  | 'ProductLaunchIntake';
+
+type MatterData = Record<string, unknown>;
+
+interface AuditEvent {
+  timestamp: string;
+  action: string;
+  actor: string;
+  notes: string;
+}
+
 interface PersistedMatter {
   id: string;
   name: string;
-  schemaType: string;
-  data: any;
-  status: 'draft' | 'pending_review' | 'approved' | 'rejected';
-  auditLog: {
-    timestamp: string;
-    action: string;
-    actor: string;
-    notes: string;
-  }[];
+  schemaType: SchemaType;
+  data: MatterData;
+  status: MatterStatus;
+  auditLog: AuditEvent[];
   dueDate?: string;
+  riskLevel?: RiskLevel;
+  reviewGate?: ReviewGate;
+  evidenceReadiness?: EvidenceReadiness;
+}
+
+interface RiskAssessment {
+  level: RiskLevel;
+  reasons: string[];
+}
+
+interface LegalActionPlan {
+  summary: string;
+  nextAction: string;
+  reviewGate: ReviewGate;
+  priority: 'routine' | 'watch' | 'urgent' | 'blocked';
+  requiredApprovals: string[];
+  blockers: string[];
+  followUps: string[];
+  evidenceToCollect: string[];
+}
+
+interface EvidenceItem {
+  id: string;
+  title: string;
+  framework: string;
+  status: 'satisfied' | 'missing' | 'needs_review' | 'not_applicable';
+  priority: 'routine' | 'important' | 'critical';
+  evidenceRequired: string[];
+  rationale: string;
+}
+
+interface EvidencePack {
+  readiness: EvidenceReadiness;
+  items: EvidenceItem[];
+  missingEvidence: EvidenceItem[];
+  requiredApprovals: string[];
+  humanReviewRequired: boolean;
+}
+
+interface ContractPlaybookDeviation {
+  id: string;
+  category: string;
+  severity: 'standard' | 'negotiable' | 'requires_approval' | 'nonstarter';
+  sourceText: string;
+  issue: string;
+  standardPosition: string;
+  fallbackPosition: string;
+  approvalRequired: string[];
+  rationale: string;
+}
+
+interface ContractPlaybook {
+  negotiationSummary: string;
+  deviations: ContractPlaybookDeviation[];
+  nonStarters: ContractPlaybookDeviation[];
+  approvalRequired: string[];
+  reviewerNotes: string[];
+  humanReviewRequired: boolean;
 }
 
 interface AnalysisResult {
+  matter?: PersistedMatter;
   validation?: {
     valid: boolean;
-    errors: string[];
+    errors?: string[];
   };
-  risk?: {
-    level: 'low' | 'medium' | 'high' | 'escalate';
-    reasons: string[];
-    score: number;
-    blockerCount: number;
-  };
-  actionPlan?: {
-    summary: string;
-    nextAction: string;
-    reviewGate: string;
-    priority: string;
-    requiredApprovals: string[];
-    blockers: string[];
-    followUps: string[];
-    evidenceToCollect: string[];
-  };
-  evidencePack?: {
-    readiness: 'green' | 'amber' | 'blocked';
-    missingEvidence: string[];
-    collectedEvidence: string[];
-  };
-  contractPlaybook?: {
-    deviations: {
-      clause: string;
-      standard: string;
-      current: string;
-      deviationType: string;
-      remediation: string;
-    }[];
-    nonStarters: string[];
-  };
+  risk?: RiskAssessment;
+  actionPlan?: LegalActionPlan;
+  evidencePack?: EvidencePack;
+  contractPlaybook?: ContractPlaybook;
+}
+
+interface WorkflowConfig {
+  type: SchemaType;
+  label: string;
+  shortLabel: string;
+  owner: string;
+  defaultName: string;
+  defaultData: MatterData;
+}
+
+const WORKFLOWS: WorkflowConfig[] = [
+  {
+    type: 'SaaSContractIntake',
+    label: 'Enterprise SaaS MSA',
+    shortLabel: 'Contract',
+    owner: 'Sales and Legal',
+    defaultName: 'Regulated workspace MSA',
+    defaultData: {
+      requestOwner: 'Enterprise Sales Lead',
+      customer: 'Atlas Metrics Bank',
+      contractType: 'MSA',
+      dealStage: 'Negotiation',
+      requestedDeadline: futureDate(12),
+      customerSector: 'Finance',
+      regulatedCustomer: true,
+      deploymentModel: 'Single-Tenant Dedicated',
+      dataCategories: [
+        'employee names',
+        'workspace documents',
+        'prompt inputs',
+        'security logs',
+        'banking workflow metadata'
+      ],
+      aiFeaturesInvolved: [
+        'Knowledge agent over customer documents',
+        'Workflow automation agent'
+      ],
+      modelOrVendorProvidersInvolved: [
+        'OpenAI Enterprise API',
+        'Anthropic Enterprise API'
+      ],
+      nonStandardTerms: [
+        'Customer asks for 10x liability cap for security breach claims',
+        'Customer requests prior notice for model provider changes'
+      ],
+      redFlags: [
+        'Customer demands zero data retention verification audited by third party every quarter'
+      ],
+      businessPosition: 'Strategic regulated customer with expansion potential across several teams.',
+      legalQuestion: 'Can we accept the security cap and model-provider notice language without creating inconsistent customer commitments?',
+      exitStrategy: 'pending'
+    }
+  },
+  {
+    type: 'DPATriage',
+    label: 'DPA and transfer review',
+    shortLabel: 'Privacy',
+    owner: 'Privacy and Security',
+    defaultName: 'Enterprise agent DPA markup',
+    defaultData: {
+      productOrService: 'AI agent workspace',
+      role: 'processor',
+      dataSubjects: ['customer employees', 'contractors', 'workspace guests'],
+      personalDataCategories: [
+        'names',
+        'email addresses',
+        'workspace documents',
+        'prompt inputs',
+        'tool activity logs'
+      ],
+      specialCategoryData: [],
+      subprocessors: [
+        {
+          name: 'Frontier Model Provider',
+          location: 'non-EU United States',
+          purpose: 'LLM inference'
+        },
+        {
+          name: 'Vector Hosting Provider',
+          location: 'EU',
+          purpose: 'retrieval index hosting'
+        }
+      ],
+      transferLocations: ['EU', 'US'],
+      retentionPeriod: 'Term of agreement plus 30 days',
+      deletionProcess: 'Certified deletion within 30 days after customer request',
+      securityAnnexStatus: 'Custom Customer Requirements',
+      customerRequestedChanges: [
+        'Customer asks for custom audit rights over model providers',
+        'Customer asks for prior notice of every subprocessor change'
+      ],
+      riskLevel: 'high',
+      missingFacts: [
+        'Confirm whether zero data retention is active for the model provider tenant'
+      ]
+    }
+  },
+  {
+    type: 'AIVendorReview',
+    label: 'AI vendor approval',
+    shortLabel: 'AI Vendor',
+    owner: 'Product, Security and Privacy',
+    defaultName: 'Model provider ZDR review',
+    defaultData: {
+      vendor: 'Frontier Model Provider',
+      tool: 'Enterprise LLM API with zero data retention addendum',
+      useCase: 'Customer workspace agents, retrieval answers, summarisation and workflow automation',
+      businessOwner: 'Head of Product Operations',
+      dataEntered: [
+        'customer workspace documents',
+        'prompt inputs',
+        'connector metadata',
+        'agent execution traces'
+      ],
+      outputUse: 'Returned inside the customer workspace and logged for customer-visible audit review',
+      retentionPosition: '30-day abuse monitoring logs unless zero data retention addendum is approved',
+      trainingOnCustomerData: false,
+      subprocessors: [
+        'unverified regional logging vendor in non-EU country'
+      ],
+      securityMaterial: [
+        'SOC 2 Type II report',
+        'ISO 27001 certificate',
+        'zero data retention addendum pending signature'
+      ],
+      approvedUse: false,
+      prohibitedUse: [
+        'Do not use with special category data until DPO review is complete',
+        'Do not use for customer-facing regulated decisions'
+      ],
+      conditions: [
+        'ZDR addendum signed before production traffic',
+        'Security review confirms model logging and deletion controls',
+        'Legal records approved use cases in the AI vendor register'
+      ],
+      copyrightIndemnity: false
+    }
+  },
+  {
+    type: 'OpenSourceReview',
+    label: 'Open-source review',
+    shortLabel: 'OSS',
+    owner: 'Engineering and Legal',
+    defaultName: 'Agent SDK licence check',
+    defaultData: {
+      package: 'collab-agent-sdk',
+      licence: 'MPL-2.0',
+      useCase: 'Embeds collaborative agent runtime helpers into the customer-facing SDK',
+      distributionModel: 'Client-Side SDK',
+      modifiedOrUnmodified: 'modified',
+      linkedOrSeparateService: 'linked',
+      attributionNeeded: true,
+      copyleftConcern: false,
+      approvalStatus: 'Pending Review'
+    }
+  },
+  {
+    type: 'CustomerCommitment',
+    label: 'Customer commitment',
+    shortLabel: 'Commitment',
+    owner: 'Legal Operations',
+    defaultName: 'EU processing commitment',
+    defaultData: {
+      customer: 'Northstar Bank',
+      commitment: 'Customer workspace data, prompts, embeddings and agent logs remain within the EU processing boundary with no US model-provider failover.',
+      sourceDocument: 'DPA Data Residency Rider, Section 2.1',
+      owner: 'Infrastructure Lead',
+      productArea: 'LLM gateway and retrieval layer',
+      operationalDependency: 'EU-only model gateway route and disabled fallback to US inference endpoints',
+      renewalRelevance: true,
+      reviewDate: futureDate(21),
+      currentStatus: 'at_risk',
+      requiredAction: 'Confirm failover behavior, support access scope and model-provider logging before renewal call.'
+    }
+  },
+  {
+    type: 'ProductLaunchIntake',
+    label: 'Product launch gate',
+    shortLabel: 'Launch',
+    owner: 'Product Counsel',
+    defaultName: 'Regulated teams agent builder',
+    defaultData: {
+      feature: 'Workspace Agent Builder for Regulated Teams',
+      owner: 'Director of AI Product',
+      targetDate: futureDate(28),
+      customerSegment: 'Enterprise regulated teams in finance, healthcare and telecom',
+      jurisdictions: ['EU', 'US', 'UK'],
+      dataInvolved: [
+        'workspace documents',
+        'prompt inputs',
+        'tool execution metadata',
+        'customer support transcripts'
+      ],
+      aiFeatures: [
+        'Configurable agents connected to company knowledge and workflow tools',
+        'Human approval step before consequential external actions'
+      ],
+      publicClaims: [
+        'Teams can reduce manual triage time by 70 percent after implementation'
+      ],
+      customerCommitmentsAffected: [
+        'Northstar Bank EU processing commitment',
+        'Atlas Metrics Bank model-provider notice covenant'
+      ],
+      privacyImpact: 'Requires DPIA screening, transfer assessment update and privacy notice review.',
+      contractImpact: 'Requires MSA AI feature description, DPA subprocessors refresh and customer commitment register update.',
+      regulatoryImpact: 'DORA, EU AI Act transparency and regulated-sector governance review required before broad release.',
+      requiredApprovals: [
+        'DPO Sign-off',
+        'Security Review',
+        'Product Owner Approval',
+        'GC Approval'
+      ]
+    }
+  }
+];
+
+const ROLE_OPTIONS: UserRole[] = ['Sales Sponsor', 'DPO Reviewer', 'General Counsel'];
+const STATUS_FILTERS: Array<'all' | MatterStatus> = ['all', 'draft', 'pending_review', 'approved', 'rejected'];
+const TABS: Array<'overview' | 'plan' | 'evidence' | 'playbook' | 'history'> = [
+  'overview',
+  'plan',
+  'evidence',
+  'playbook',
+  'history'
+];
+
+function futureDate(daysAhead: number): string {
+  return new Date(Date.now() + daysAhead * 86400000).toISOString().slice(0, 10);
+}
+
+function createMatterId(): string {
+  return `matter-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function workflowFor(type: SchemaType): WorkflowConfig {
+  return WORKFLOWS.find(workflow => workflow.type === type) ?? WORKFLOWS[0];
+}
+
+function formatStatus(status: string): string {
+  return status.replace(/_/g, ' ');
+}
+
+function formatDate(value?: string): string {
+  if (!value) return 'No timestamp';
+  return new Date(value).toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function getMatterHeadline(matter: PersistedMatter): string {
+  const data = matter.data;
+  if (typeof data.customer === 'string') return data.customer;
+  if (typeof data.vendor === 'string') return data.vendor;
+  if (typeof data.feature === 'string') return data.feature;
+  if (typeof data.productOrService === 'string') return data.productOrService;
+  if (typeof data.package === 'string') return data.package;
+  return matter.name;
+}
+
+function stringifyData(data: MatterData): string {
+  return JSON.stringify(data, null, 2);
 }
 
 export default function Dashboard() {
   const [matters, setMatters] = useState<PersistedMatter[]>([]);
   const [selectedMatter, setSelectedMatter] = useState<PersistedMatter | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'plan' | 'evidence' | 'playbook' | 'history'>('overview');
-  
-  // App-wide state
-  const [userRole, setUserRole] = useState<'Sales Sponsor' | 'DPO Reviewer' | 'General Counsel'>('Sales Sponsor');
-  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>('overview');
+  const [userRole, setUserRole] = useState<UserRole>('Sales Sponsor');
+  const [statusFilter, setStatusFilter] = useState<'all' | MatterStatus>('all');
+  const [searchTerm, setSearchTerm] = useState('');
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  
-  // Wizard state
-  const [wizardSchema, setWizardSchema] = useState<string>('SaaSContractIntake');
+  const [reviewNotes, setReviewNotes] = useState('');
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [wizardSchema, setWizardSchema] = useState<SchemaType>('SaaSContractIntake');
   const [wizardName, setWizardName] = useState('');
   const [wizardId, setWizardId] = useState('');
-  const [wizardData, setWizardData] = useState<any>({});
+  const [wizardPayload, setWizardPayload] = useState('');
+  const [wizardError, setWizardError] = useState('');
   const [wizardAnalysis, setWizardAnalysis] = useState<AnalysisResult | null>(null);
-  
-  // Transition Form state
-  const [transitionNotes, setTransitionNotes] = useState('');
-  const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Fetch matters
-  const fetchMatters = async () => {
+  const showToast = useCallback((type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    window.setTimeout(() => setToast(null), 3600);
+  }, []);
+
+  const fetchMatters = useCallback(async () => {
     try {
-      const res = await fetch('/api/matters');
-      const data = await res.json();
+      const response = await fetch('/api/matters', { cache: 'no-store' });
+      const data = await response.json();
       if (Array.isArray(data)) {
         setMatters(data);
       }
-    } catch (e) {
-      showToast('error', 'Failed to retrieve matters from persistence.');
+    } catch {
+      showToast('error', 'Matter queue could not be loaded.');
     }
-  };
+  }, [showToast]);
 
   useEffect(() => {
-    fetchMatters();
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchMatters();
+  }, [fetchMatters]);
 
-  // Fetch specific matter analysis details
-  const selectMatter = async (matter: PersistedMatter) => {
+  const selectMatter = useCallback(async (matter: PersistedMatter) => {
     setSelectedMatter(matter);
     setAnalysis(null);
+    setActiveTab('overview');
     try {
-      const res = await fetch(`/api/matters/${matter.id}`);
-      const result = await res.json();
-      if (res.ok) {
-        setAnalysis(result);
-      } else {
-        showToast('error', result.error || 'Failed to analyze matter.');
+      const response = await fetch(`/api/matters/${matter.id}`, { cache: 'no-store' });
+      const result = await response.json();
+      if (!response.ok) {
+        showToast('error', result.error || 'Matter analysis failed.');
+        return;
       }
-    } catch (e) {
-      showToast('error', 'Error reaching analysis server.');
+      setSelectedMatter(result.matter);
+      setAnalysis(result);
+    } catch {
+      showToast('error', 'Matter analysis API could not be reached.');
     }
-  };
-
-  const showToast = (type: 'success' | 'error', message: string) => {
-    setToast({ type, message });
-    setTimeout(() => setToast(null), 4000);
-  };
+  }, [showToast]);
 
   const handleSeedData = async () => {
     try {
-      const res = await fetch('/api/matters/seed', { method: 'POST' });
-      const result = await res.json();
-      if (result.success) {
-        showToast('success', `Initialized ${result.seeded.length} matters from template examples.`);
-        fetchMatters();
-      } else {
-        showToast('error', result.error || 'Failed to seed data.');
+      const response = await fetch('/api/matters/seed', { method: 'POST' });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        showToast('error', result.error || 'Demo matters could not be seeded.');
+        return;
       }
-    } catch (e) {
-      showToast('error', 'Error communicating with seeding API.');
+
+      await fetchMatters();
+      showToast('success', `Loaded ${result.seeded.length} synthetic Dust-style matters.`);
+      if (result.seeded[0]) {
+        const detail = await fetch(`/api/matters/${result.seeded[0]}`, { cache: 'no-store' });
+        const detailResult = await detail.json();
+        if (detail.ok) {
+          setSelectedMatter(detailResult.matter);
+          setAnalysis(detailResult);
+        }
+      }
+    } catch {
+      showToast('error', 'Demo seed API could not be reached.');
     }
   };
 
-  // Status transitions
-  const handleTransitionStatus = async (status: 'approved' | 'rejected' | 'pending_review') => {
+  const handleDeleteMatter = async (id: string) => {
+    if (!window.confirm('Delete this synthetic matter from local demo storage?')) return;
+    try {
+      const response = await fetch(`/api/matters/${id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        showToast('error', 'Matter could not be deleted.');
+        return;
+      }
+      if (selectedMatter?.id === id) {
+        setSelectedMatter(null);
+        setAnalysis(null);
+      }
+      await fetchMatters();
+      showToast('success', 'Matter deleted from local demo storage.');
+    } catch {
+      showToast('error', 'Delete request failed.');
+    }
+  };
+
+  const handleTransitionStatus = async (status: MatterStatus) => {
     if (!selectedMatter) return;
-    if (!transitionNotes.trim()) {
-      showToast('error', 'Please provide notes/justification for status change.');
+    if (!reviewNotes.trim()) {
+      showToast('error', 'Add a review note before changing status.');
       return;
     }
-    
+
     setIsTransitioning(true);
     try {
-      const res = await fetch(`/api/matters/${selectedMatter.id}/transition`, {
+      const response = await fetch(`/api/matters/${selectedMatter.id}/transition`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status,
-          actor: `${userRole} User`,
-          notes: transitionNotes
+          actor: `${userRole} demo user`,
+          actorRole: userRole,
+          notes: reviewNotes
         })
       });
-      const result = await res.json();
-      if (res.ok) {
-        showToast('success', `Matter transitioned successfully to ${status}.`);
-        setTransitionNotes('');
-        // Refresh detail and list
-        await fetchMatters();
-        // Update selectedMatter view
-        const updatedRes = await fetch(`/api/matters/${selectedMatter.id}`);
-        const updatedData = await updatedRes.json();
-        setSelectedMatter(updatedData.matter);
-        setAnalysis(updatedData);
-      } else {
-        showToast('error', result.error || 'Transition failed.');
+      const result = await response.json();
+      if (!response.ok) {
+        showToast('error', result.error || 'Status transition failed.');
+        return;
       }
-    } catch (e) {
-      showToast('error', 'Network error while attempting transition.');
+      setReviewNotes('');
+      await fetchMatters();
+      await selectMatter(result.matter);
+      showToast('success', `Matter moved to ${formatStatus(status)}.`);
+    } catch {
+      showToast('error', 'Status transition request failed.');
     } finally {
       setIsTransitioning(false);
     }
   };
 
-  const handleDeleteMatter = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this matter?')) return;
-    try {
-      const res = await fetch(`/api/matters/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        showToast('success', 'Matter deleted.');
-        if (selectedMatter?.id === id) {
-          setSelectedMatter(null);
-          setAnalysis(null);
-        }
-        fetchMatters();
-      } else {
-        showToast('error', 'Delete failed.');
-      }
-    } catch (e) {
-      showToast('error', 'Network error during delete.');
-    }
-  };
-
-  // Wizard logic
   const openWizard = () => {
-    setWizardName('');
-    const genId = 'matter-' + Math.random().toString(36).substr(2, 6);
-    setWizardId(genId);
-    setWizardSchema('SaaSContractIntake');
-    const initData = getInitialWizardData('SaaSContractIntake');
-    setWizardData(initData);
+    const workflow = workflowFor('SaaSContractIntake');
+    const payload = stringifyData(workflow.defaultData);
+    setWizardSchema(workflow.type);
+    setWizardName(workflow.defaultName);
+    setWizardId(createMatterId());
+    setWizardPayload(payload);
+    setWizardError('');
     setWizardAnalysis(null);
     setIsWizardOpen(true);
-    runLiveAnalysis('SaaSContractIntake', initData);
+    void runWizardAnalysis(workflow.type, payload);
   };
 
-  const handleSchemaChange = (schema: string) => {
-    setWizardSchema(schema);
-    const initData = getInitialWizardData(schema);
-    setWizardData(initData);
-    runLiveAnalysis(schema, initData);
+  const handleSchemaChange = (type: SchemaType) => {
+    const workflow = workflowFor(type);
+    const payload = stringifyData(workflow.defaultData);
+    setWizardSchema(type);
+    setWizardName(workflow.defaultName);
+    setWizardPayload(payload);
+    setWizardError('');
+    void runWizardAnalysis(type, payload);
   };
 
-  const handleWizardFieldChange = (key: string, value: any) => {
-    const updated = { ...wizardData, [key]: value };
-    setWizardData(updated);
-    runLiveAnalysis(wizardSchema, updated);
+  const handleWizardPayloadChange = (value: string) => {
+    setWizardPayload(value);
+    void runWizardAnalysis(wizardSchema, value);
   };
 
-  const handleWizardArrayToggle = (key: string, item: string) => {
-    const current = wizardData[key] || [];
-    const updated = current.includes(item)
-      ? current.filter((x: string) => x !== item)
-      : [...current, item];
-    const newData = { ...wizardData, [key]: updated };
-    setWizardData(newData);
-    runLiveAnalysis(wizardSchema, newData);
-  };
-
-  const runLiveAnalysis = async (schema: string, data: any) => {
+  const runWizardAnalysis = async (schema: SchemaType, payload: string) => {
     try {
-      const res = await fetch('/api/analyze', {
+      const data = JSON.parse(payload) as MatterData;
+      setWizardError('');
+      const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ schemaType: schema, data })
       });
-      if (res.ok) {
-        const result = await res.json();
-        setWizardAnalysis(result);
+      if (response.ok) {
+        setWizardAnalysis(await response.json());
       }
-    } catch (e) {
-      console.error(e);
+    } catch {
+      setWizardError('Payload is not valid JSON.');
+      setWizardAnalysis(null);
     }
   };
 
-  const handleSaveWizard = async () => {
+  const handleSaveWizard = async (status: MatterStatus) => {
     if (!wizardName.trim() || !wizardId.trim()) {
-      showToast('error', 'Please fill in Name and ID.');
+      showToast('error', 'Matter name and ID are required.');
       return;
     }
+
+    let data: MatterData;
     try {
-      const res = await fetch('/api/matters', {
+      data = JSON.parse(wizardPayload) as MatterData;
+    } catch {
+      showToast('error', 'Payload is not valid JSON.');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/matters', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: wizardId,
           name: wizardName,
           schemaType: wizardSchema,
-          data: wizardData,
-          status: 'draft',
-          actor: `${userRole} User`,
-          notes: 'Self-serve wizard intake creation'
+          data,
+          status,
+          actor: `${userRole} demo user`,
+          notes: status === 'pending_review'
+            ? 'Submitted through self-serve intake for legal review.'
+            : 'Created through self-serve intake as draft.'
         })
       });
-      const result = await res.json();
-      if (res.ok) {
-        showToast('success', `Intake submitted successfully.`);
-        setIsWizardOpen(false);
-        fetchMatters();
-        // Automatically select the newly created matter
-        if (result.matter) {
-          selectMatter(result.matter);
-        }
-      } else {
-        showToast('error', result.error || 'Failed to save matter.');
+      const result = await response.json();
+      if (!response.ok) {
+        showToast('error', result.error || 'Matter could not be saved.');
+        return;
       }
-    } catch (e) {
-      showToast('error', 'Error connecting to save API.');
+      setIsWizardOpen(false);
+      await fetchMatters();
+      await selectMatter(result.matter);
+      showToast('success', `Matter saved as ${formatStatus(status)}.`);
+    } catch {
+      showToast('error', 'Matter save request failed.');
     }
   };
 
-  // Helper values for fields
-  const getInitialWizardData = (schema: string) => {
-    switch (schema) {
-      case 'SaaSContractIntake':
-        return {
-          customer: 'Acme Corp',
-          requestOwner: 'Sponsor User',
-          contractType: 'MSA',
-          dealStage: 'Negotiation',
-          requestedDeadline: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
-          regulatedCustomer: false,
-          customerSector: 'technology',
-          dataCategories: [],
-          aiFeaturesInvolved: []
-        };
-      case 'DPATriage':
-        return {
-          vendor: 'CloudStore Inc',
-          purpose: 'Data storage hosting backup services',
-          personalDataCategories: ['emails'],
-          crossBorderTransfer: false,
-          subprocessorsInvolved: false,
-          dpoSignoffRequired: false
-        };
-      case 'AIVendorReview':
-        return {
-          vendor: 'ChatGen AI',
-          tool: 'Copilot Assistant',
-          dataUsageModel: 'inference_only',
-          trainingOptOut: true,
-          copyrightIndemnity: false,
-          securityCertification: 'SOC2'
-        };
-      case 'OpenSourceReview':
-        return {
-          dependencyName: 'fast-logger-sdk',
-          licence: 'MIT',
-          distributionModel: 'SaaS',
-          modificationPlanned: false,
-          commercialUseAllowed: true
-        };
-      case 'CustomerCommitment':
-        return {
-          customer: 'Enterprise Group Inc',
-          commitment: '99.9% custom SLA guarantee rider',
-          sourceDocument: 'MSA Addendum A',
-          slaUptimeGuarantees: 99.9,
-          liquidatedDamagesApplies: false,
-          approvedByGC: false
-        };
-      case 'ProductLaunchIntake':
-        return {
-          featureName: 'AI Loan Triaging Assistant',
-          description: 'Automates customer credit assessment and scoring model pipelines',
-          targetDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
-          involvesAI: true,
-          highRiskAITriage: true,
-          requiresPrivacyReview: true
-        };
-      default:
-        return {};
-    }
+  const copyEvidenceMemo = async () => {
+    if (!selectedMatter || !analysis?.evidencePack) return;
+    const rows = analysis.evidencePack.items
+      .map(item => `- ${item.title}: ${item.status}, ${item.evidenceRequired.join('; ')}`)
+      .join('\n');
+    await navigator.clipboard.writeText([
+      `# Evidence Pack: ${selectedMatter.name}`,
+      `Readiness: ${analysis.evidencePack.readiness}`,
+      '',
+      rows
+    ].join('\n'));
+    showToast('success', 'Evidence memo copied.');
   };
 
-  // Render helpers
-  const renderRiskPill = (level: string) => {
-    const cl = level === 'low' ? 'risk-low' : level === 'medium' ? 'risk-medium' : level === 'high' ? 'risk-high' : 'risk-escalate';
-    return <span className={`risk-badge ${cl}`}>{level}</span>;
+  const copyPlaybookMemo = async () => {
+    if (!selectedMatter || !analysis?.contractPlaybook) return;
+    const rows = analysis.contractPlaybook.deviations
+      .map(deviation => [
+        `## ${deviation.id}`,
+        `Issue: ${deviation.issue}`,
+        `Fallback: ${deviation.fallbackPosition}`,
+        `Approvals: ${deviation.approvalRequired.join(', ') || 'None'}`
+      ].join('\n'))
+      .join('\n\n');
+    await navigator.clipboard.writeText([
+      `# Contract Playbook: ${selectedMatter.name}`,
+      '',
+      analysis.contractPlaybook.negotiationSummary,
+      '',
+      rows || 'No deviations.'
+    ].join('\n'));
+    showToast('success', 'Playbook memo copied.');
   };
 
-  const renderStatusBadge = (status: string) => {
-    const label = status === 'pending_review' ? 'Pending Review' : status;
-    const cl = status === 'pending_review' ? 'status-pending' : `status-${status}`;
-    return <span className={`status-badge ${cl}`}>{label}</span>;
-  };
+  const metrics = useMemo(() => {
+    const pending = matters.filter(matter => matter.status === 'pending_review').length;
+    const blocked = matters.filter(matter => matter.riskLevel === 'escalate' || matter.evidenceReadiness === 'blocked').length;
+    const approved = matters.filter(matter => matter.status === 'approved').length;
+    const coverage = matters.length === 0 ? 100 : Math.round((approved / matters.length) * 100);
+    return { pending, blocked, approved, coverage };
+  }, [matters]);
 
-  // Metrics calculators
-  const pendingCount = matters.filter(m => m.status === 'pending_review').length;
-  const draftCount = matters.filter(m => m.status === 'draft').length;
-  const approvedCount = matters.filter(m => m.status === 'approved').length;
-  
+  const visibleMatters = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    return matters.filter(matter => {
+      const statusMatches = statusFilter === 'all' || matter.status === statusFilter;
+      const searchMatches = normalizedSearch.length === 0 || [
+        matter.name,
+        matter.id,
+        matter.schemaType,
+        getMatterHeadline(matter)
+      ].some(value => value.toLowerCase().includes(normalizedSearch));
+      return statusMatches && searchMatches;
+    });
+  }, [matters, searchTerm, statusFilter]);
+
+  const canGcDecide = Boolean(userRole === 'General Counsel'
+    && selectedMatter
+    && selectedMatter.status !== 'approved'
+    && selectedMatter.status !== 'rejected');
+  const canSendToReview = Boolean(selectedMatter && selectedMatter.status === 'draft');
+
   return (
-    <div className="app-container">
-      {/* Toast Notifier */}
+    <main className="workspace-shell">
       {toast && (
-        <div className="toast-banner">
-          <div className={`toast ${toast.type}`}>
-            {toast.type === 'success' ? '✅' : '❌'} {toast.message}
-          </div>
+        <div className={`toast ${toast.type}`} role="status">
+          {toast.message}
         </div>
       )}
 
-      {/* Title Tags & Header */}
-      <header className="app-header" id="main-header">
-        <div className="logo-section">
-          <div className="logo-icon">§</div>
+      <header className="topbar">
+        <div className="brand-block">
+          <div className="brand-mark" aria-hidden="true">GC</div>
           <div>
-            <h1 className="logo-text">StrategyOS</h1>
-            <span className="logo-tag">Legal Operations Engine</span>
+            <h1>AI SaaS Legal Portal</h1>
+            <p>Synthetic Dust GC demo</p>
           </div>
         </div>
-
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-          {matters.length === 0 && (
-            <button className="btn btn-secondary btn-sm" onClick={handleSeedData} id="seed-btn">
-              ⚡ Seed Example Matters
-            </button>
-          )}
-          
-          {/* User Role Toggle */}
-          <div className="role-badge-container" id="role-container">
-            <span className="role-label">Act as:</span>
-            <select
-              className="role-select"
-              value={userRole}
-              onChange={(e) => setUserRole(e.target.value as any)}
-              id="role-selector"
-            >
-              <option value="Sales Sponsor">Sales Sponsor / Product Owner</option>
-              <option value="DPO Reviewer">Privacy / DPO Reviewer</option>
-              <option value="General Counsel">General Counsel (GC)</option>
-            </select>
+        <div className="header-actions">
+          <div className="segmented-control" aria-label="Active role">
+            {ROLE_OPTIONS.map(role => (
+              <button
+                key={role}
+                type="button"
+                className={userRole === role ? 'selected' : ''}
+                onClick={() => setUserRole(role)}
+              >
+                {role}
+              </button>
+            ))}
           </div>
-
-          <button className="btn btn-primary" onClick={openWizard} id="new-intake-btn">
-            + New Intake Matter
+          <button type="button" className="secondary-button" onClick={handleSeedData}>
+            Seed Dust demo
+          </button>
+          <button type="button" className="primary-button" onClick={openWizard}>
+            New intake
           </button>
         </div>
       </header>
 
-      {/* Metrics Cards */}
-      <section className="metrics-grid" aria-label="Key Performance Indicators" id="kpi-section">
-        <div className="glass-panel metric-card info" id="metric-total">
-          <div className="metric-header">
-            <span className="metric-title">Total Ingested</span>
-            <span className="metric-icon">📁</span>
-          </div>
-          <span className="metric-value">{matters.length}</span>
-          <span className="metric-sub">{draftCount} drafts in preparation</span>
-        </div>
-
-        <div className="glass-panel metric-card warning" id="metric-pending">
-          <div className="metric-header">
-            <span className="metric-title">Pending Review</span>
-            <span className="metric-icon">⏳</span>
-          </div>
-          <span className="metric-value">{pendingCount}</span>
-          <span className="metric-sub">Requires Legal or DPO Sign-off</span>
-        </div>
-
-        <div className="glass-panel metric-card success" id="metric-approved">
-          <div className="metric-header">
-            <span className="metric-title">Approved Releases</span>
-            <span className="metric-icon">✅</span>
-          </div>
-          <span className="metric-value">{approvedCount}</span>
-          <span className="metric-sub">Compliant & Safe to Launch</span>
-        </div>
-
-        <div className="glass-panel metric-card danger" id="metric-escalations">
-          <div className="metric-header">
-            <span className="metric-title">Compliance Index</span>
-            <span className="metric-icon">⚖️</span>
-          </div>
-          <span className="metric-value">
-            {matters.length > 0
-              ? `${Math.round((approvedCount / matters.length) * 100)}%`
-              : '100%'}
-          </span>
-          <span className="metric-sub">Proportion of approved intakes</span>
-        </div>
+      <section className="kpi-grid" aria-label="Portfolio metrics">
+        <Metric label="Open review queue" value={metrics.pending.toString()} detail="Pending reviewer action" tone="warning" />
+        <Metric label="Blocked gates" value={metrics.blocked.toString()} detail="Escalated or evidence-blocked" tone="danger" />
+        <Metric label="Approved matters" value={metrics.approved.toString()} detail="Final reviewer decisions" tone="success" />
+        <Metric label="Approval coverage" value={`${metrics.coverage}%`} detail="Approved share of queue" tone="neutral" />
       </section>
 
-      {/* Split Layout: Matters list & detail panel */}
-      <div className="dashboard-layout" id="main-dashboard-body">
-        {/* Left Side: Matters list */}
-        <section className="glass-panel" id="matters-list-panel" aria-label="Matters Queue">
-          <div className="section-header">
-            <h2 className="section-title">📂 Active Intake Matters</h2>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              Select a matter to run playbook checks & audits
-            </span>
+      <section className="workflow-strip" aria-label="Workflow coverage">
+        {WORKFLOWS.map(workflow => (
+          <div key={workflow.type} className="workflow-item">
+            <span>{workflow.shortLabel}</span>
+            <strong>{workflow.owner}</strong>
+          </div>
+        ))}
+      </section>
+
+      <div className="portal-layout">
+        <section className="queue-panel" aria-label="Matter queue">
+          <div className="panel-heading">
+            <div>
+              <h2>Matter Queue</h2>
+              <p>{visibleMatters.length} visible of {matters.length} local matters</p>
+            </div>
+          </div>
+
+          <div className="queue-toolbar">
+            <input
+              type="search"
+              className="text-input"
+              placeholder="Search matters"
+              value={searchTerm}
+              onChange={event => setSearchTerm(event.target.value)}
+            />
+            <select
+              className="select-input"
+              value={statusFilter}
+              onChange={event => setStatusFilter(event.target.value as typeof statusFilter)}
+              aria-label="Status filter"
+            >
+              {STATUS_FILTERS.map(status => (
+                <option key={status} value={status}>
+                  {status === 'all' ? 'All statuses' : formatStatus(status)}
+                </option>
+              ))}
+            </select>
           </div>
 
           {matters.length === 0 ? (
-            <div className="chart-placeholder" style={{ padding: '40px', textAlign: 'center', flexDirection: 'column', gap: '16px' }} id="empty-state">
-              <span>No matters saved in persistent storage database (.storage/matters/).</span>
-              <button className="btn btn-primary" onClick={handleSeedData}>
-                ⚡ Load Bundled Matters Examples
+            <div className="empty-state">
+              <h3>No demo matters loaded</h3>
+              <p>Load the synthetic Dust GC portfolio to review the operating model.</p>
+              <button type="button" className="primary-button" onClick={handleSeedData}>
+                Seed Dust demo
               </button>
             </div>
           ) : (
-            <div className="table-container">
-              <table className="data-table" id="matters-table">
+            <div className="table-wrap">
+              <table className="matter-table">
                 <thead>
                   <tr>
-                    <th>Matter Name</th>
-                    <th>Type</th>
+                    <th>Matter</th>
                     <th>Status</th>
-                    <th>Last Event</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
+                    <th>Risk</th>
+                    <th>Gate</th>
+                    <th>Updated</th>
+                    <th aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
-                  {matters.map((m) => {
-                    const lastAudit = m.auditLog[m.auditLog.length - 1];
-                    const timeString = lastAudit
-                      ? new Date(lastAudit.timestamp).toLocaleDateString()
-                      : 'N/A';
-                    const isSelected = selectedMatter?.id === m.id;
+                  {visibleMatters.map(matter => {
+                    const lastAudit = matter.auditLog[matter.auditLog.length - 1];
+                    const selected = selectedMatter?.id === matter.id;
                     return (
-                      <tr
-                        key={m.id}
-                        onClick={() => selectMatter(m)}
-                        style={{
-                          cursor: 'pointer',
-                          background: isSelected ? 'rgba(99, 102, 241, 0.08)' : '',
-                          borderColor: isSelected ? 'rgba(99, 102, 241, 0.2)' : ''
-                        }}
-                        className="matter-row"
-                        id={`row-${m.id}`}
-                      >
+                      <tr key={matter.id} className={selected ? 'selected-row' : ''}>
                         <td>
-                          <div style={{ fontWeight: 600 }}>{m.name}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ID: {m.id}</div>
+                          <button type="button" className="matter-link" onClick={() => void selectMatter(matter)}>
+                            <strong>{matter.name}</strong>
+                            <span>{getMatterHeadline(matter)}</span>
+                          </button>
                         </td>
+                        <td><StatusBadge status={matter.status} /></td>
+                        <td><RiskBadge level={matter.riskLevel ?? 'low'} /></td>
+                        <td>{matter.reviewGate ?? 'self-serve'}</td>
+                        <td>{formatDate(lastAudit?.timestamp)}</td>
                         <td>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{m.schemaType}</span>
-                        </td>
-                        <td>{renderStatusBadge(m.status)}</td>
-                        <td>
-                          <div style={{ fontSize: '0.8rem' }}>{lastAudit?.action || 'Created'}</div>
-                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{timeString}</div>
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
                           <button
-                            className="btn btn-secondary btn-danger btn-sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteMatter(m.id);
-                            }}
-                            id={`del-btn-${m.id}`}
+                            type="button"
+                            className="text-button danger"
+                            onClick={() => void handleDeleteMatter(matter.id)}
                           >
-                            🗑️
+                            Delete
                           </button>
                         </td>
                       </tr>
@@ -534,861 +800,389 @@ export default function Dashboard() {
           )}
         </section>
 
-        {/* Right Side: Analysis & Details */}
-        <section className="glass-panel" id="matter-details-panel" aria-label="Audit Details">
+        <section className="detail-panel" aria-label="Matter detail">
           {selectedMatter ? (
-            <div>
-              <div style={{ borderBottom: '1px solid var(--glass-border)', paddingBottom: '16px', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h2 className="section-title" id="detail-title">{selectedMatter.name}</h2>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      ID: {selectedMatter.id} • Type: {selectedMatter.schemaType}
-                    </span>
-                  </div>
-                  <div>
-                    {renderStatusBadge(selectedMatter.status)}
-                  </div>
+            <>
+              <div className="detail-header">
+                <div>
+                  <p className="eyebrow">{selectedMatter.schemaType}</p>
+                  <h2>{selectedMatter.name}</h2>
+                  <p>{getMatterHeadline(selectedMatter)}</p>
+                </div>
+                <div className="badge-stack">
+                  <StatusBadge status={selectedMatter.status} />
+                  <RiskBadge level={analysis?.risk?.level ?? selectedMatter.riskLevel ?? 'low'} />
                 </div>
               </div>
 
-              {/* Tabs */}
-              <div className="tabs-header" id="details-tabs">
-                <button
-                  className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('overview')}
-                  id="tab-btn-overview"
-                >
-                  Overview
-                </button>
-                <button
-                  className={`tab-btn ${activeTab === 'plan' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('plan')}
-                  id="tab-btn-plan"
-                >
-                  Action Plan
-                </button>
-                <button
-                  className={`tab-btn ${activeTab === 'evidence' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('evidence')}
-                  id="tab-btn-evidence"
-                >
-                  Evidence Pack
-                </button>
-                {selectedMatter.schemaType === 'SaaSContractIntake' && (
+              <nav className="tabs" aria-label="Matter detail sections">
+                {TABS.map(tab => (
                   <button
-                    className={`tab-btn ${activeTab === 'playbook' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('playbook')}
-                    id="tab-btn-playbook"
+                    key={tab}
+                    type="button"
+                    className={activeTab === tab ? 'active' : ''}
+                    onClick={() => setActiveTab(tab)}
                   >
-                    Playbook
+                    {tab === 'plan' ? 'Action plan' : tab}
                   </button>
-                )}
-                <button
-                  className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('history')}
-                  id="tab-btn-history"
-                >
-                  Audit Trail
-                </button>
-              </div>
+                ))}
+              </nav>
 
-              {/* Tab Contents */}
-              <div style={{ minHeight: '300px' }} id="tab-content-box">
-                {analysis ? (
-                  <>
-                    {/* Tab: Overview */}
-                    {activeTab === 'overview' && (
-                      <div className="detail-section" id="section-overview">
-                        <div className="detail-grid">
-                          <div className="detail-item">
-                            <span className="detail-item-title">Risk Assessment</span>
-                            <div className="detail-item-value" style={{ marginTop: '4px' }}>
-                              {renderRiskPill(analysis.risk?.level || 'low')}
-                            </div>
-                          </div>
-                          <div className="detail-item">
-                            <span className="detail-item-title">Compliance Gate</span>
-                            <div className="detail-item-value" style={{ fontWeight: 600 }}>
-                              {analysis.actionPlan?.reviewGate || 'No Review Gate'}
-                            </div>
-                          </div>
-                        </div>
+              {analysis ? (
+                <div className="detail-body">
+                  {activeTab === 'overview' && (
+                    <OverviewTab matter={selectedMatter} analysis={analysis} />
+                  )}
 
-                        <div className="detail-item">
-                          <span className="detail-item-title">Data Validation</span>
-                          <div className="detail-item-value" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            {analysis.validation?.valid ? (
-                              <span style={{ color: 'var(--color-success)', fontWeight: 600 }}>✅ JSON Schema Valid</span>
-                            ) : (
-                              <div style={{ color: 'var(--color-danger)', fontWeight: 600 }}>
-                                <div>❌ Schema Violations Found:</div>
-                                <ul style={{ marginLeft: '16px', fontSize: '0.8rem', fontWeight: 400 }}>
-                                  {analysis.validation?.errors.map((e, idx) => <li key={idx}>{e}</li>)}
-                                </ul>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                  {activeTab === 'plan' && (
+                    <ActionPlanTab plan={analysis.actionPlan} risk={analysis.risk} />
+                  )}
 
-                        <div className="detail-item">
-                          <span className="detail-item-title">Scoring Reasons ({analysis.risk?.reasons.length || 0})</span>
-                          <div className="detail-item-value" style={{ fontSize: '0.85rem' }}>
-                            {analysis.risk?.reasons && analysis.risk.reasons.length > 0 ? (
-                              <ul style={{ marginLeft: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                {analysis.risk.reasons.map((r, idx) => (
-                                  <li key={idx} style={{ color: 'var(--text-secondary)' }}>{r}</li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <span style={{ color: 'var(--text-muted)' }}>No high risk indicators identified.</span>
-                            )}
-                          </div>
-                        </div>
+                  {activeTab === 'evidence' && (
+                    <EvidenceTab pack={analysis.evidencePack} onCopy={() => void copyEvidenceMemo()} />
+                  )}
 
-                        {/* Intake Data Dump */}
-                        <div className="detail-item">
-                          <span className="detail-item-title">Intake JSON Data Payload</span>
-                          <pre style={{
-                            background: 'rgba(0,0,0,0.3)',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            fontSize: '0.75rem',
-                            overflowX: 'auto',
-                            marginTop: '6px',
-                            border: '1px solid var(--glass-border)',
-                            color: '#a5b4fc',
-                            maxHeight: '200px'
-                          }}>
-                            {JSON.stringify(selectedMatter.data, null, 2)}
-                          </pre>
-                        </div>
-                      </div>
-                    )}
+                  {activeTab === 'playbook' && (
+                    <PlaybookTab playbook={analysis.contractPlaybook} onCopy={() => void copyPlaybookMemo()} />
+                  )}
 
-                    {/* Tab: Action Plan */}
-                    {activeTab === 'plan' && (
-                      <div className="detail-section" id="section-plan">
-                        <div className="detail-item">
-                          <span className="detail-item-title">Executive Summary</span>
-                          <div className="detail-item-value" style={{ color: 'var(--text-secondary)' }}>
-                            {analysis.actionPlan?.summary}
-                          </div>
-                        </div>
-                        <div className="detail-item" style={{ background: 'rgba(99, 102, 241, 0.05)', padding: '10px', borderRadius: '8px', borderLeft: '3px solid var(--color-brand)' }}>
-                          <span className="detail-item-title" style={{ color: '#a5b4fc' }}>Next Action Required</span>
-                          <div className="detail-item-value" style={{ fontWeight: 600, color: 'white' }}>
-                            {analysis.actionPlan?.nextAction}
-                          </div>
-                        </div>
+                  {activeTab === 'history' && (
+                    <AuditTab auditLog={selectedMatter.auditLog} />
+                  )}
 
-                        <div className="detail-grid">
-                          <div className="detail-item">
-                            <span className="detail-item-title">Required Approvals</span>
-                            <div className="detail-item-value">
-                              {analysis.actionPlan?.requiredApprovals && analysis.actionPlan.requiredApprovals.length > 0 ? (
-                                <ul style={{ marginLeft: '16px', fontSize: '0.85rem' }}>
-                                  {analysis.actionPlan.requiredApprovals.map((a, i) => <li key={i}>{a}</li>)}
-                                </ul>
-                              ) : (
-                                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>None required.</span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="detail-item">
-                            <span className="detail-item-title">Identified Blockers</span>
-                            <div className="detail-item-value">
-                              {analysis.actionPlan?.blockers && analysis.actionPlan.blockers.length > 0 ? (
-                                <ul style={{ marginLeft: '16px', fontSize: '0.85rem', color: 'var(--color-danger)' }}>
-                                  {analysis.actionPlan.blockers.map((b, i) => <li key={i}>{b}</li>)}
-                                </ul>
-                              ) : (
-                                <span style={{ color: 'var(--color-success)', fontSize: '0.85rem' }}>None.</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="detail-item">
-                          <span className="detail-item-title">Mitigation & Follow-Ups</span>
-                          <div className="detail-item-value">
-                            {analysis.actionPlan?.followUps && analysis.actionPlan.followUps.length > 0 ? (
-                              <ul style={{ marginLeft: '16px', fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                {analysis.actionPlan.followUps.map((f, i) => <li key={i}>{f}</li>)}
-                              </ul>
-                            ) : (
-                              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No pending follow-ups.</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Tab: Evidence Pack */}
-                    {activeTab === 'evidence' && (
-                      <div className="detail-section" id="section-evidence">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span className="detail-item-title">Governance Status</span>
-                          <span className={`status-badge ${analysis.evidencePack?.readiness === 'green' ? 'status-approved' : analysis.evidencePack?.readiness === 'amber' ? 'status-pending' : 'status-rejected'}`}>
-                            {analysis.evidencePack?.readiness.toUpperCase()}
-                          </span>
-                        </div>
-
-                        <div className="detail-item">
-                          <span className="detail-item-title">Collected Evidence Items</span>
-                          <div className="detail-item-value">
-                            {analysis.evidencePack?.collectedEvidence && analysis.evidencePack.collectedEvidence.length > 0 ? (
-                              <ul style={{ marginLeft: '16px', fontSize: '0.85rem', color: 'var(--color-success)' }}>
-                                {analysis.evidencePack.collectedEvidence.map((e, idx) => <li key={idx}>✓ {e}</li>)}
-                              </ul>
-                            ) : (
-                              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No evidence collected yet.</span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="detail-item" style={{ background: 'rgba(239, 68, 68, 0.04)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
-                          <span className="detail-item-title" style={{ color: '#f87171' }}>Missing / Required Evidence Items</span>
-                          <div className="detail-item-value" style={{ marginTop: '6px' }}>
-                            {analysis.evidencePack?.missingEvidence && analysis.evidencePack.missingEvidence.length > 0 ? (
-                              <ul style={{ marginLeft: '16px', fontSize: '0.85rem', color: '#fca5a5' }}>
-                                {analysis.evidencePack.missingEvidence.map((e, idx) => <li key={idx}>⚠️ {e}</li>)}
-                              </ul>
-                            ) : (
-                              <span style={{ color: 'var(--color-success)', fontSize: '0.85rem' }}>All compliance evidence items collected!</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Export Button */}
-                        <div style={{ marginTop: '16px' }}>
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => {
-                              const content = `# Evidence Pack: ${selectedMatter.name}\nGenerated At: ${new Date().toISOString()}\nReadiness: ${analysis.evidencePack?.readiness}\n\nCollected Evidence:\n${analysis.evidencePack?.collectedEvidence.map(e => `- [x] ${e}`).join('\n')}\n\nMissing Evidence:\n${analysis.evidencePack?.missingEvidence.map(e => `- [ ] ${e}`).join('\n')}`;
-                              navigator.clipboard.writeText(content);
-                              showToast('success', 'Evidence Pack markdown report copied to clipboard.');
-                            }}
-                            id="export-evidence-btn"
-                          >
-                            📋 Copy Evidence Pack Memo
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Tab: Playbook */}
-                    {activeTab === 'playbook' && analysis.contractPlaybook && (
-                      <div className="detail-section" id="section-playbook">
-                        <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Contract Playbook Deviation Report</h3>
-                        
-                        {analysis.contractPlaybook.nonStarters.length > 0 && (
-                          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', padding: '12px', borderRadius: '8px', color: '#fca5a5', fontSize: '0.85rem' }}>
-                            <strong>🚨 NON-STARTER ISSUES DETECTED:</strong>
-                            <ul style={{ marginLeft: '16px', marginTop: '6px' }}>
-                              {analysis.contractPlaybook.nonStarters.map((ns, idx) => <li key={idx}>{ns}</li>)}
-                            </ul>
-                          </div>
-                        )}
-
-                        <div>
-                          <span className="detail-item-title">Clause Deviations ({analysis.contractPlaybook.deviations.length})</span>
-                          <div style={{ marginTop: '8px' }}>
-                            {analysis.contractPlaybook.deviations.map((dev, idx) => (
-                              <div className="deviation-card" key={idx}>
-                                <div className="deviation-header">
-                                  <span>Clause: {dev.clause}</span>
-                                  <span className="risk-badge risk-high" style={{ fontSize: '0.65rem' }}>{dev.deviationType}</span>
-                                </div>
-                                <div className="deviation-body">
-                                  <div><strong>Standard:</strong> {dev.standard}</div>
-                                  <div><strong>Proposed:</strong> {dev.current}</div>
-                                </div>
-                                <div className="deviation-remediation">
-                                  <strong>Remediation Option:</strong> {dev.remediation}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Export Button */}
-                        <div>
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => {
-                              const content = `# Playbook Review: ${selectedMatter.name}\nGenerated At: ${new Date().toISOString()}\nNon-starters: ${analysis.contractPlaybook?.nonStarters.join(', ') || 'None'}\n\nDeviations:\n${analysis.contractPlaybook?.deviations.map(d => `## Clause: ${d.clause}\n- Standard: ${d.standard}\n- Current: ${d.current}\n- Remediation: ${d.remediation}`).join('\n\n')}`;
-                              navigator.clipboard.writeText(content);
-                              showToast('success', 'Playbook review report copied to clipboard.');
-                            }}
-                            id="export-playbook-btn"
-                          >
-                            📋 Copy Playbook Memo
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Tab: Audit History */}
-                    {activeTab === 'history' && (
-                      <div className="detail-section" id="section-history">
-                        <span className="detail-item-title">Audit Trail & Activity Logs</span>
-                        <div className="audit-list">
-                          {selectedMatter.auditLog.map((log, idx) => (
-                            <div className="audit-item" key={idx}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span className="audit-action">{log.action}</span>
-                                <span className="audit-time">{new Date(log.timestamp).toLocaleString()}</span>
-                              </div>
-                              <span className="audit-actor">Actor: <strong>{log.actor}</strong></span>
-                              {log.notes && <div className="audit-notes">“{log.notes}”</div>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Action Form Panel - Human In The Loop */}
-                    {selectedMatter.status !== 'approved' && selectedMatter.status !== 'rejected' ? (
-                      <div className="action-box" id="transition-action-box">
-                        <h3 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '8px' }}>⚖️ Human Review Action Panel</h3>
-                        
-                        {userRole !== 'General Counsel' ? (
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '6px', border: '1px dashed var(--glass-border)' }}>
-                            🔒 Review commands restricted. Switch role to <strong>General Counsel</strong> in the header to approve or reject this matter.
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <div className="form-group">
-                              <label className="form-label" htmlFor="transition-notes-input">Decision Justification / Review Notes</label>
-                              <textarea
-                                id="transition-notes-input"
-                                className="form-textarea"
-                                rows={2}
-                                placeholder="Enter reason, policy compliance rationale or mitigation commitments..."
-                                value={transitionNotes}
-                                onChange={(e) => setTransitionNotes(e.target.value)}
-                              />
-                            </div>
-                            <div style={{ display: 'flex', gap: '10px' }}>
-                              <button
-                                className="btn btn-primary"
-                                onClick={() => handleTransitionStatus('approved')}
-                                disabled={isTransitioning}
-                                style={{ background: 'var(--color-success)', boxShadow: '0 4px 14px 0 rgba(16, 185, 129, 0.3)' }}
-                                id="btn-gc-approve"
-                              >
-                                {isTransitioning ? 'Processing...' : 'Approve & Release'}
-                              </button>
-                              <button
-                                className="btn btn-secondary btn-danger"
-                                onClick={() => handleTransitionStatus('rejected')}
-                                disabled={isTransitioning}
-                                id="btn-gc-reject"
-                              >
-                                {isTransitioning ? 'Processing...' : 'Reject / Flag Blocked'}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                  <div className="decision-panel">
+                    <div>
+                      <h3>Review Decision</h3>
+                      <p>Final approval and rejection actions are restricted to the General Counsel role and require written notes.</p>
+                    </div>
+                    {selectedMatter.status === 'approved' || selectedMatter.status === 'rejected' ? (
+                      <div className="locked-note">Final status recorded as {formatStatus(selectedMatter.status)}.</div>
                     ) : (
-                      <div style={{ marginTop: '16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--glass-border)', padding: '12px', borderRadius: '8px', textAlign: 'center', fontSize: '0.85rem' }}>
-                        🏁 This matter has been finalized as <strong>{selectedMatter.status.toUpperCase()}</strong>. The audit trail is locked.
-                      </div>
+                      <>
+                        <textarea
+                          className="textarea-input"
+                          rows={3}
+                          placeholder="Decision rationale, conditions, evidence gaps or approved fallback position"
+                          value={reviewNotes}
+                          onChange={event => setReviewNotes(event.target.value)}
+                        />
+                        <div className="decision-actions">
+                          {canSendToReview && (
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              disabled={isTransitioning}
+                              onClick={() => void handleTransitionStatus('pending_review')}
+                            >
+                              Send to review
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="success-button"
+                            disabled={!canGcDecide || isTransitioning}
+                            onClick={() => void handleTransitionStatus('approved')}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            className="danger-button"
+                            disabled={!canGcDecide || isTransitioning}
+                            onClick={() => void handleTransitionStatus('rejected')}
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </>
                     )}
-                  </>
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
-                    Running playbook evaluation rules...
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
+              ) : (
+                <div className="empty-state compact">
+                  <p>Running deterministic analysis.</p>
+                </div>
+              )}
+            </>
           ) : (
-            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', padding: '60px 0', textAlign: 'center' }} id="no-matter-selected">
-              <span>⚖️</span>
-              <p style={{ marginTop: '12px' }}>No matter selected.</p>
-              <p style={{ fontSize: '0.8rem' }}>Select an intake matter from the queue on the left to run policies check, generate action plans, and log reviews.</p>
+            <div className="empty-state tall">
+              <h3>No matter selected</h3>
+              <p>Choose a matter from the queue or seed the Dust demo portfolio.</p>
             </div>
           )}
         </section>
       </div>
 
-      {/* Intake Wizard Modal */}
       {isWizardOpen && (
-        <div className="modal-overlay" id="wizard-modal">
-          <div className="glass-panel modal-content">
-            <button className="modal-close" onClick={() => setIsWizardOpen(false)}>×</button>
-            <h2 className="section-title" style={{ fontSize: '1.5rem', marginBottom: '16px' }}>Self-Serve Intake Wizard</h2>
-            
-            <div className="wizard-grid">
-              {/* Form Section */}
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="wizard-title">
+          <div className="modal-panel">
+            <div className="modal-header">
               <div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="wizard-matter-name">Intake Matter Name</label>
+                <p className="eyebrow">Self-serve intake</p>
+                <h2 id="wizard-title">New legal matter</h2>
+              </div>
+              <button type="button" className="text-button" onClick={() => setIsWizardOpen(false)}>
+                Close
+              </button>
+            </div>
+
+            <div className="wizard-layout">
+              <div className="wizard-form">
+                <div className="form-grid">
+                  <label>
+                    Matter name
                     <input
-                      id="wizard-matter-name"
-                      type="text"
-                      className="form-input"
-                      placeholder="e.g. Stripe DPA, Acme Co MSA"
+                      className="text-input"
                       value={wizardName}
-                      onChange={(e) => setWizardName(e.target.value)}
+                      onChange={event => setWizardName(event.target.value)}
                     />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="wizard-matter-id">Matter ID</label>
+                  </label>
+                  <label>
+                    Matter ID
                     <input
-                      id="wizard-matter-id"
-                      type="text"
-                      className="form-input"
+                      className="text-input"
                       value={wizardId}
-                      onChange={(e) => setWizardId(e.target.value)}
+                      onChange={event => setWizardId(event.target.value)}
                     />
-                  </div>
+                  </label>
                 </div>
-
-                <div className="form-group">
-                  <label className="form-label" htmlFor="wizard-schema-type">Select Intake Workflow Schema</label>
+                <label>
+                  Workflow
                   <select
-                    id="wizard-schema-type"
-                    className="form-select"
+                    className="select-input"
                     value={wizardSchema}
-                    onChange={(e) => handleSchemaChange(e.target.value)}
+                    onChange={event => handleSchemaChange(event.target.value as SchemaType)}
                   >
-                    <option value="SaaSContractIntake">SaaS Contract Intake (MSA/Order Form)</option>
-                    <option value="DPATriage">DPA Triage (GDPR / Privacy)</option>
-                    <option value="AIVendorReview">AI Vendor Review (Governance/IP)</option>
-                    <option value="OpenSourceReview">Open-Source Review (Permissive/Copyleft)</option>
-                    <option value="CustomerCommitment">Customer Commitment (SLA/Guarantees)</option>
-                    <option value="ProductLaunchIntake">Product Launch Intake (Compliance Audit)</option>
+                    {WORKFLOWS.map(workflow => (
+                      <option key={workflow.type} value={workflow.type}>{workflow.label}</option>
+                    ))}
                   </select>
-                </div>
-
-                <hr style={{ border: '0', borderTop: '1px solid var(--glass-border)', margin: '20px 0' }} />
-
-                {/* Schema-specific Dynamic Fields */}
-                <div id="dynamic-form-fields">
-                  {wizardSchema === 'SaaSContractIntake' && (
-                    <>
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label className="form-label" htmlFor="field-customer">Customer Name</label>
-                          <input
-                            id="field-customer"
-                            type="text"
-                            className="form-input"
-                            value={wizardData.customer || ''}
-                            onChange={(e) => handleWizardFieldChange('customer', e.target.value)}
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label className="form-label" htmlFor="field-owner">Request Owner</label>
-                          <input
-                            id="field-owner"
-                            type="text"
-                            className="form-input"
-                            value={wizardData.requestOwner || ''}
-                            onChange={(e) => handleWizardFieldChange('requestOwner', e.target.value)}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label className="form-label" htmlFor="field-contractType">Contract Type</label>
-                          <select
-                            id="field-contractType"
-                            className="form-select"
-                            value={wizardData.contractType || 'MSA'}
-                            onChange={(e) => handleWizardFieldChange('contractType', e.target.value)}
-                          >
-                            <option value="MSA">MSA</option>
-                            <option value="DPA">DPA</option>
-                            <option value="SLA">SLA</option>
-                            <option value="Addendum">Addendum</option>
-                          </select>
-                        </div>
-                        <div className="form-group">
-                          <label className="form-label" htmlFor="field-sector">Customer Sector (DORA Trigger)</label>
-                          <select
-                            id="field-sector"
-                            className="form-select"
-                            value={wizardData.customerSector || 'technology'}
-                            onChange={(e) => handleWizardFieldChange('customerSector', e.target.value)}
-                          >
-                            <option value="technology">Technology</option>
-                            <option value="financial">Financial / Banking (DORA)</option>
-                            <option value="fintech">Fintech (DORA)</option>
-                            <option value="healthcare">Healthcare</option>
-                            <option value="custom_dora_test">Custom DORA Test</option>
-                            <option value="other">Other</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="checkbox-group">
-                        <input
-                          id="field-regulated"
-                          type="checkbox"
-                          checked={wizardData.regulatedCustomer || false}
-                          onChange={(e) => handleWizardFieldChange('regulatedCustomer', e.target.checked)}
-                        />
-                        <label htmlFor="field-regulated">Regulated Customer (Triggers Risk Score Increase)</label>
-                      </div>
-
-                      <div style={{ marginTop: '12px' }}>
-                        <span className="form-label">Data Categories Involved</span>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '6px' }}>
-                          {['emails', 'passwords', 'health_records', 'payment_details'].map((cat) => (
-                            <label className="checkbox-group" key={cat} htmlFor={`cat-${cat}`}>
-                              <input
-                                id={`cat-${cat}`}
-                                type="checkbox"
-                                checked={wizardData.dataCategories?.includes(cat) || false}
-                                onChange={() => handleWizardArrayToggle('dataCategories', cat)}
-                              />
-                              {cat.replace('_', ' ')}
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div style={{ marginTop: '12px' }}>
-                        <span className="form-label">AI Features Involved</span>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '6px' }}>
-                          {['generation', 'summarization', 'classification', 'unverified_training'].map((feat) => (
-                            <label className="checkbox-group" key={feat} htmlFor={`feat-${feat}`}>
-                              <input
-                                id={`feat-${feat}`}
-                                type="checkbox"
-                                checked={wizardData.aiFeaturesInvolved?.includes(feat) || false}
-                                onChange={() => handleWizardArrayToggle('aiFeaturesInvolved', feat)}
-                              />
-                              {feat.replace('_', ' ')}
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {wizardSchema === 'DPATriage' && (
-                    <>
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="dpa-vendor">Vendor Name</label>
-                        <input
-                          id="dpa-vendor"
-                          type="text"
-                          className="form-input"
-                          value={wizardData.vendor || ''}
-                          onChange={(e) => handleWizardFieldChange('vendor', e.target.value)}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="dpa-purpose">Data Processing Purpose</label>
-                        <input
-                          id="dpa-purpose"
-                          type="text"
-                          className="form-input"
-                          value={wizardData.purpose || ''}
-                          onChange={(e) => handleWizardFieldChange('purpose', e.target.value)}
-                        />
-                      </div>
-                      <div className="checkbox-group">
-                        <input
-                          id="dpa-cross"
-                          type="checkbox"
-                          checked={wizardData.crossBorderTransfer || false}
-                          onChange={(e) => handleWizardFieldChange('crossBorderTransfer', e.target.checked)}
-                        />
-                        <label htmlFor="dpa-cross">Involves Cross-Border Data Transfer (GDPR/EU-US)</label>
-                      </div>
-                      <div className="checkbox-group">
-                        <input
-                          id="dpa-sub"
-                          type="checkbox"
-                          checked={wizardData.subprocessorsInvolved || false}
-                          onChange={(e) => handleWizardFieldChange('subprocessorsInvolved', e.target.checked)}
-                        />
-                        <label htmlFor="dpa-sub">Uses Subprocessors (Triggers Playbook Clause Checks)</label>
-                      </div>
-                      <div className="checkbox-group">
-                        <input
-                          id="dpa-signoff"
-                          type="checkbox"
-                          checked={wizardData.dpoSignoffRequired || false}
-                          onChange={(e) => handleWizardFieldChange('dpoSignoffRequired', e.target.checked)}
-                        />
-                        <label htmlFor="dpa-signoff">Explicit DPO Signoff Requested</label>
-                      </div>
-                    </>
-                  )}
-
-                  {wizardSchema === 'AIVendorReview' && (
-                    <>
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label className="form-label" htmlFor="ai-vendor">AI Vendor</label>
-                          <input
-                            id="ai-vendor"
-                            type="text"
-                            className="form-input"
-                            value={wizardData.vendor || ''}
-                            onChange={(e) => handleWizardFieldChange('vendor', e.target.value)}
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label className="form-label" htmlFor="ai-tool">AI Tool/Model Name</label>
-                          <input
-                            id="ai-tool"
-                            type="text"
-                            className="form-input"
-                            value={wizardData.tool || ''}
-                            onChange={(e) => handleWizardFieldChange('tool', e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="ai-dataUsage">Vendor Data Usage Model</label>
-                        <select
-                          id="ai-dataUsage"
-                          className="form-select"
-                          value={wizardData.dataUsageModel || 'inference_only'}
-                          onChange={(e) => handleWizardFieldChange('dataUsageModel', e.target.value)}
-                        >
-                          <option value="inference_only">Inference Only (Private API)</option>
-                          <option value="training">Vendor Retains Data for Model Training</option>
-                        </select>
-                      </div>
-                      <div className="checkbox-group">
-                        <input
-                          id="ai-optout"
-                          type="checkbox"
-                          checked={wizardData.trainingOptOut || false}
-                          onChange={(e) => handleWizardFieldChange('trainingOptOut', e.target.checked)}
-                        />
-                        <label htmlFor="ai-optout">Model Training Opt-out Verified</label>
-                      </div>
-                      <div className="checkbox-group">
-                        <input
-                          id="ai-indemnity"
-                          type="checkbox"
-                          checked={wizardData.copyrightIndemnity || false}
-                          onChange={(e) => handleWizardFieldChange('copyrightIndemnity', e.target.checked)}
-                        />
-                        <label htmlFor="ai-indemnity">Full Copyright/IP Indemnity Included</label>
-                      </div>
-                    </>
-                  )}
-
-                  {wizardSchema === 'OpenSourceReview' && (
-                    <>
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label className="form-label" htmlFor="oss-dep">Dependency Name</label>
-                          <input
-                            id="oss-dep"
-                            type="text"
-                            className="form-input"
-                            value={wizardData.dependencyName || ''}
-                            onChange={(e) => handleWizardFieldChange('dependencyName', e.target.value)}
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label className="form-label" htmlFor="oss-licence">Licence</label>
-                          <select
-                            id="oss-licence"
-                            className="form-select"
-                            value={wizardData.licence || 'MIT'}
-                            onChange={(e) => handleWizardFieldChange('licence', e.target.value)}
-                          >
-                            <option value="MIT">MIT (Permissive)</option>
-                            <option value="Apache-2.0">Apache 2.0 (Permissive)</option>
-                            <option value="LGPL-2.1">LGPL 2.1 (Weak Copyleft)</option>
-                            <option value="GPL-3.0">GPL 3.0 (Strong Copyleft)</option>
-                            <option value="AGPL-3.0">AGPL 3.0 (Network Copyleft)</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="oss-dist">Distribution Model</label>
-                        <select
-                          id="oss-dist"
-                          className="form-select"
-                          value={wizardData.distributionModel || 'SaaS'}
-                          onChange={(e) => handleWizardFieldChange('distributionModel', e.target.value)}
-                        >
-                          <option value="SaaS">SaaS Cloud Only</option>
-                          <option value="OnPrem">On-Premises Software</option>
-                          <option value="MobileApp">Mobile App Store Package</option>
-                        </select>
-                      </div>
-                      <div className="checkbox-group">
-                        <input
-                          id="oss-mod"
-                          type="checkbox"
-                          checked={wizardData.modificationPlanned || false}
-                          onChange={(e) => handleWizardFieldChange('modificationPlanned', e.target.checked)}
-                        />
-                        <label htmlFor="oss-mod">Modifications Planned to Dependency Code</label>
-                      </div>
-                    </>
-                  )}
-
-                  {wizardSchema === 'CustomerCommitment' && (
-                    <>
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="com-customer">Customer</label>
-                        <input
-                          id="com-customer"
-                          type="text"
-                          className="form-input"
-                          value={wizardData.customer || ''}
-                          onChange={(e) => handleWizardFieldChange('customer', e.target.value)}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="com-commitment">Custom Commitment Description</label>
-                        <input
-                          id="com-commitment"
-                          type="text"
-                          className="form-input"
-                          value={wizardData.commitment || ''}
-                          onChange={(e) => handleWizardFieldChange('commitment', e.target.value)}
-                        />
-                      </div>
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label className="form-label" htmlFor="com-sla">SLA Uptime Guarantee (%)</label>
-                          <input
-                            id="com-sla"
-                            type="number"
-                            step="0.01"
-                            className="form-input"
-                            value={wizardData.slaUptimeGuarantees || 99.9}
-                            onChange={(e) => handleWizardFieldChange('slaUptimeGuarantees', parseFloat(e.target.value) || 0)}
-                          />
-                        </div>
-                        <div className="form-group" style={{ display: 'flex', justifyContent: 'center' }}>
-                          <label className="checkbox-group" htmlFor="com-damage" style={{ marginTop: '24px' }}>
-                            <input
-                              id="com-damage"
-                              type="checkbox"
-                              checked={wizardData.liquidatedDamagesApplies || false}
-                              onChange={(e) => handleWizardFieldChange('liquidatedDamagesApplies', e.target.checked)}
-                            />
-                            Liquidated Damages Applies
-                          </label>
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {wizardSchema === 'ProductLaunchIntake' && (
-                    <>
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="launch-name">Feature/Launch Name</label>
-                        <input
-                          id="launch-name"
-                          type="text"
-                          className="form-input"
-                          value={wizardData.featureName || ''}
-                          onChange={(e) => handleWizardFieldChange('featureName', e.target.value)}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="launch-desc">Feature Description</label>
-                        <textarea
-                          id="launch-desc"
-                          className="form-textarea"
-                          rows={2}
-                          value={wizardData.description || ''}
-                          onChange={(e) => handleWizardFieldChange('description', e.target.value)}
-                        />
-                      </div>
-                      <div className="checkbox-group">
-                        <input
-                          id="launch-ai"
-                          type="checkbox"
-                          checked={wizardData.involvesAI || false}
-                          onChange={(e) => handleWizardFieldChange('involvesAI', e.target.checked)}
-                        />
-                        <label htmlFor="launch-ai">Involves Generative AI or LLMs</label>
-                      </div>
-                      <div className="checkbox-group">
-                        <input
-                          id="launch-high"
-                          type="checkbox"
-                          checked={wizardData.highRiskAITriage || false}
-                          onChange={(e) => handleWizardFieldChange('highRiskAITriage', e.target.checked)}
-                        />
-                        <label htmlFor="launch-high">High Risk AI triage (e.g. automated decisions on humans)</label>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
-                  <button className="btn btn-primary" onClick={handleSaveWizard} id="wizard-submit-btn">
-                    Submit Intake & Save
+                </label>
+                <label>
+                  Structured intake payload
+                  <textarea
+                    className="json-input"
+                    spellCheck={false}
+                    rows={22}
+                    value={wizardPayload}
+                    onChange={event => handleWizardPayloadChange(event.target.value)}
+                  />
+                </label>
+                <div className="decision-actions">
+                  <button type="button" className="secondary-button" onClick={() => void handleSaveWizard('draft')}>
+                    Save draft
                   </button>
-                  <button className="btn btn-secondary" onClick={() => setIsWizardOpen(false)}>
-                    Cancel
+                  <button type="button" className="primary-button" onClick={() => void handleSaveWizard('pending_review')}>
+                    Submit to review
                   </button>
                 </div>
               </div>
 
-              {/* Sidebar Live Triage Feedback */}
-              <div className="triage-panel" id="wizard-live-triage">
-                <span className="triage-header">⚡ Live Triage Analytics</span>
-                
-                {wizardAnalysis ? (
+              <aside className="wizard-analysis">
+                <h3>Live triage</h3>
+                {wizardError ? (
+                  <p className="error-text">{wizardError}</p>
+                ) : wizardAnalysis ? (
                   <>
-                    <div className="triage-message-box">
-                      <div className="triage-title">
-                        <span>Risk Level:</span>
-                        {renderRiskPill(wizardAnalysis.risk?.level || 'low')}
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                        Gate: <strong>{wizardAnalysis.actionPlan?.reviewGate}</strong>
-                      </div>
+                    <div className="summary-list">
+                      <span>Risk</span>
+                      <strong><RiskBadge level={wizardAnalysis.risk?.level ?? 'low'} /></strong>
+                      <span>Review gate</span>
+                      <strong>{wizardAnalysis.actionPlan?.reviewGate}</strong>
+                      <span>Evidence</span>
+                      <strong>{wizardAnalysis.evidencePack?.readiness}</strong>
                     </div>
-
-                    <div className="triage-reasons">
-                      <strong>Validation Check:</strong>
-                      {wizardAnalysis.validation?.valid ? (
-                        <span style={{ color: 'var(--color-success)', fontSize: '0.8rem' }}>✅ Schema matches constraints</span>
-                      ) : (
-                        <span style={{ color: 'var(--color-danger)', fontSize: '0.8rem' }}>❌ Validation Errors ({wizardAnalysis.validation?.errors.length})</span>
-                      )}
-                    </div>
-
-                    {wizardAnalysis.risk?.reasons && wizardAnalysis.risk.reasons.length > 0 && (
-                      <div className="triage-reasons">
-                        <strong>Triggers Triggered:</strong>
-                        {wizardAnalysis.risk.reasons.map((r, idx) => (
-                          <div className="triage-reason-item" key={idx}>
-                            <span>•</span>
-                            <span>{r}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <h4>Trigger reasons</h4>
+                    <ul className="plain-list">
+                      {wizardAnalysis.risk?.reasons.map(reason => (
+                        <li key={reason}>{reason}</li>
+                      ))}
+                    </ul>
                   </>
                 ) : (
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    Type inputs to see real-time compliance validation and risk scoring.
-                  </div>
+                  <p>Waiting for analysis.</p>
                 )}
-              </div>
+              </aside>
             </div>
           </div>
         </div>
       )}
+    </main>
+  );
+}
+
+function Metric(props: { label: string; value: string; detail: string; tone: 'neutral' | 'success' | 'warning' | 'danger' }) {
+  return (
+    <div className={`metric-card ${props.tone}`}>
+      <span>{props.label}</span>
+      <strong>{props.value}</strong>
+      <p>{props.detail}</p>
     </div>
+  );
+}
+
+function StatusBadge({ status }: { status: MatterStatus }) {
+  return <span className={`status-badge ${status}`}>{formatStatus(status)}</span>;
+}
+
+function RiskBadge({ level }: { level: RiskLevel }) {
+  return <span className={`risk-badge ${level}`}>{level}</span>;
+}
+
+function OverviewTab({ matter, analysis }: { matter: PersistedMatter; analysis: AnalysisResult }) {
+  const validationErrors = analysis.validation?.errors ?? [];
+  return (
+    <div className="stack">
+      <div className="summary-list">
+        <span>Validation</span>
+        <strong>{analysis.validation?.valid ? 'Schema valid' : 'Schema errors'}</strong>
+        <span>Risk level</span>
+        <strong><RiskBadge level={analysis.risk?.level ?? 'low'} /></strong>
+        <span>Review gate</span>
+        <strong>{analysis.actionPlan?.reviewGate ?? 'self-serve'}</strong>
+        <span>Evidence readiness</span>
+        <strong>{analysis.evidencePack?.readiness ?? 'ready'}</strong>
+      </div>
+
+      {validationErrors.length > 0 && (
+        <section className="issue-section">
+          <h3>Validation issues</h3>
+          <ul className="plain-list">
+            {validationErrors.map(error => <li key={error}>{error}</li>)}
+          </ul>
+        </section>
+      )}
+
+      <section className="issue-section">
+        <h3>Risk reasons</h3>
+        <ul className="plain-list">
+          {analysis.risk?.reasons.map(reason => <li key={reason}>{reason}</li>)}
+        </ul>
+      </section>
+
+      <section className="issue-section">
+        <h3>Source payload</h3>
+        <pre className="json-block">{JSON.stringify(matter.data, null, 2)}</pre>
+      </section>
+    </div>
+  );
+}
+
+function ActionPlanTab({ plan, risk }: { plan?: LegalActionPlan; risk?: RiskAssessment }) {
+  if (!plan) return <p>No action plan generated.</p>;
+  return (
+    <div className="stack">
+      <div className="summary-list">
+        <span>Priority</span>
+        <strong>{plan.priority}</strong>
+        <span>Review gate</span>
+        <strong>{plan.reviewGate}</strong>
+        <span>Risk</span>
+        <strong><RiskBadge level={risk?.level ?? 'low'} /></strong>
+      </div>
+      <section className="issue-section">
+        <h3>Summary</h3>
+        <p>{plan.summary}</p>
+      </section>
+      <section className="issue-section highlight">
+        <h3>Next action</h3>
+        <p>{plan.nextAction}</p>
+      </section>
+      <ListSection title="Required approvals" values={plan.requiredApprovals} />
+      <ListSection title="Blockers" values={plan.blockers} empty="No blockers." />
+      <ListSection title="Follow-ups" values={plan.followUps} />
+      <ListSection title="Evidence to collect" values={plan.evidenceToCollect} />
+    </div>
+  );
+}
+
+function EvidenceTab({ pack, onCopy }: { pack?: EvidencePack; onCopy: () => void }) {
+  if (!pack) return <p>No evidence pack generated.</p>;
+  return (
+    <div className="stack">
+      <div className="split-heading">
+        <div className="summary-list">
+          <span>Readiness</span>
+          <strong>{pack.readiness}</strong>
+          <span>Open evidence</span>
+          <strong>{pack.missingEvidence.length}</strong>
+          <span>Human review</span>
+          <strong>{pack.humanReviewRequired ? 'Required' : 'Self-serve'}</strong>
+        </div>
+        <button type="button" className="secondary-button" onClick={onCopy}>Copy memo</button>
+      </div>
+
+      <div className="evidence-list">
+        {pack.items.map(item => (
+          <article key={item.id} className="evidence-row">
+            <div>
+              <strong>{item.title}</strong>
+              <span>{item.framework} | {item.priority} | {item.status}</span>
+            </div>
+            <p>{item.evidenceRequired.join('; ')}</p>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PlaybookTab({ playbook, onCopy }: { playbook?: ContractPlaybook; onCopy: () => void }) {
+  if (!playbook) return <p>No contract playbook applies to this matter.</p>;
+  return (
+    <div className="stack">
+      <div className="split-heading">
+        <div>
+          <h3>Negotiation summary</h3>
+          <p>{playbook.negotiationSummary}</p>
+        </div>
+        <button type="button" className="secondary-button" onClick={onCopy}>Copy memo</button>
+      </div>
+      <ListSection title="Non-starters" values={playbook.nonStarters.map(item => item.issue)} empty="No non-starters." />
+      <ListSection title="Approvals" values={playbook.approvalRequired} />
+      <div className="evidence-list">
+        {playbook.deviations.map(deviation => (
+          <article key={deviation.id} className="evidence-row">
+            <div>
+              <strong>{deviation.issue}</strong>
+              <span>{deviation.category} | {deviation.severity}</span>
+            </div>
+            <p>{deviation.fallbackPosition}</p>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AuditTab({ auditLog }: { auditLog: AuditEvent[] }) {
+  return (
+    <div className="audit-list">
+      {auditLog.map((event, index) => (
+        <article key={`${event.timestamp}-${index}`} className="audit-row">
+          <div>
+            <strong>{event.action}</strong>
+            <span>{formatDate(event.timestamp)}</span>
+          </div>
+          <p>{event.actor}</p>
+          <p>{event.notes}</p>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function ListSection({ title, values, empty = 'None.' }: { title: string; values: string[]; empty?: string }) {
+  return (
+    <section className="issue-section">
+      <h3>{title}</h3>
+      {values.length > 0 ? (
+        <ul className="plain-list">
+          {values.map(value => <li key={value}>{value}</li>)}
+        </ul>
+      ) : (
+        <p>{empty}</p>
+      )}
+    </section>
   );
 }
