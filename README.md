@@ -6,17 +6,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 [![Data Safety: Public Safe](https://img.shields.io/badge/Data%20Safety-Public%20Safe-success?style=flat-square)](#public-safety-note)
 
-### *A public-safe legal engineering starter kit for building the first legal operating layer inside an AI-native SaaS company.*
-
----
+### A public-safe legal operating layer for AI-native SaaS
 
 ## Why This Matters
 
-**Legal teams should not become ticket queues. They should become internal product teams that expose reusable legal workflows to sales, product, privacy, security, and leadership.**
-
-In high-growth AI-native SaaS companies, traditional manual contracting, manual privacy reviews, and siloed compliance assessments create operational bottlenecks. By treating legal workflows as structured data validated by JSON schemas and evaluated via deterministic rule engines, legal engineering enables companies to scale fast, enforce regulatory boundaries, and maintain a machine-readable audit trail.
-
----
+This repository is a functional compliance operating system for high-growth enterprise AI SaaS platforms. It moves legal oversight from reactive documents and inbox traffic into structured data schemas, deterministic risk rules and review-gated workflows. The result is contract intake classification, DPA risk triage, AI vendor review and product launch governance with a machine-readable audit trail.
 
 ## What This Proves
 
