@@ -3,13 +3,39 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Portfolio-grade legal engineering starter kit for AI-native SaaS companies.",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./cli": {
+      "types": "./dist/src/cli.d.ts",
+      "import": "./dist/src/cli.js"
+    },
+    "./package.json": "./package.json"
+  },
   "bin": {
     "legal-ops-demo": "dist/src/cli.js"
   },
+  "files": [
+    "dist/src",
+    "schemas",
+    "examples",
+    "policies",
+    "templates",
+    "docs",
+    "README.md",
+    "LICENSE",
+    "sample-output.md",
+    "what-this-proves.md"
+  ],
   "scripts": {
     "build": "tsc",
+    "check:package": "npm run build && node scripts/check-package.mjs",
+    "audit:root": "npm audit --omit=dev",
+    "audit:dashboard": "node scripts/check-dashboard-audit.mjs",
     "demo": "npm run build && node dist/src/cli.js",
     "demo:json": "npm run build && node dist/src/cli.js --format json",
     "dashboard:dev": "npm run build && npm --prefix dashboard run dev",

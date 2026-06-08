@@ -1,11 +1,26 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActionPlanTab,
+  AuditTab,
+  DecisionPacketTab,
+  EvidenceTab,
+  GuidedIntakeFields,
+  HealthStrip,
+  Metric,
+  OverviewTab,
+  PlaybookTab,
+  RegulatoryMatrixTab,
+  RiskBadge,
+  StatusBadge
+} from './dashboard-components';
 
 type MatterStatus = 'draft' | 'pending_review' | 'approved' | 'rejected';
 type RiskLevel = 'low' | 'medium' | 'high' | 'escalate';
 type ReviewGate = 'self-serve' | 'legal-review' | 'senior-legal-review' | 'gc-review';
 type EvidenceReadiness = 'ready' | 'review_needed' | 'blocked';
+type RegulatoryReadiness = 'satisfied' | 'needs_review' | 'missing' | 'not_applicable';
 type UserRole = 'Sales Sponsor' | 'DPO Reviewer' | 'General Counsel';
 type SchemaType =
   | 'SaaSContractIntake'
@@ -32,9 +47,11 @@ interface PersistedMatter {
   status: MatterStatus;
   auditLog: AuditEvent[];
   dueDate?: string;
+  validationErrors?: string[];
   riskLevel?: RiskLevel;
   reviewGate?: ReviewGate;
   evidenceReadiness?: EvidenceReadiness;
+  regulatoryMatrixGaps?: number;
 }
 
 interface RiskAssessment {
@@ -61,6 +78,26 @@ interface EvidenceItem {
   priority: 'routine' | 'important' | 'critical';
   evidenceRequired: string[];
   rationale: string;
+}
+
+interface RegulatoryMatrixRow {
+  id: string;
+  framework: string;
+  obligation: string;
+  trigger: string;
+  sourceFields: string[];
+  evidenceRequired: string[];
+  owner: string;
+  reviewGate: string;
+  readiness: RegulatoryReadiness;
+  rationale: string;
+}
+
+interface RegulatoryMatrix {
+  rows: RegulatoryMatrixRow[];
+  gaps: RegulatoryMatrixRow[];
+  humanReviewRequired: boolean;
+  humanReviewNotice: string;
 }
 
 interface EvidencePack {
@@ -92,6 +129,32 @@ interface ContractPlaybook {
   humanReviewRequired: boolean;
 }
 
+interface PolicyHealth {
+  status: string;
+  path?: string;
+  loadedRules: number;
+  errors: string[];
+}
+
+interface DecisionPacket {
+  matterName: string;
+  schemaType: string;
+  generatedAt: string;
+  reviewerNote?: string;
+  integrityManifest: {
+    algorithm: 'sha256';
+    overallDigest: string;
+    sections: Array<{ section: string; digest: string }>;
+  };
+  humanReviewNotice: string;
+}
+
+interface StorageDiagnostic {
+  filePath?: string;
+  id?: string;
+  reason: string;
+}
+
 interface AnalysisResult {
   matter?: PersistedMatter;
   validation?: {
@@ -101,7 +164,10 @@ interface AnalysisResult {
   risk?: RiskAssessment;
   actionPlan?: LegalActionPlan;
   evidencePack?: EvidencePack;
+  regulatoryMatrix?: RegulatoryMatrix;
   contractPlaybook?: ContractPlaybook;
+  policyHealth?: PolicyHealth;
+  decisionPacket?: DecisionPacket;
 }
 
 interface WorkflowConfig {
@@ -322,11 +388,13 @@ const WORKFLOWS: WorkflowConfig[] = [
 
 const ROLE_OPTIONS: UserRole[] = ['Sales Sponsor', 'DPO Reviewer', 'General Counsel'];
 const STATUS_FILTERS: Array<'all' | MatterStatus> = ['all', 'draft', 'pending_review', 'approved', 'rejected'];
-const TABS: Array<'overview' | 'plan' | 'evidence' | 'playbook' | 'history'> = [
+const TABS: Array<'overview' | 'plan' | 'evidence' | 'matrix' | 'playbook' | 'packet' | 'history'> = [
   'overview',
   'plan',
   'evidence',
+  'matrix',
   'playbook',
+  'packet',
   'history'
 ];
 
@@ -371,6 +439,29 @@ function stringifyData(data: MatterData): string {
   return JSON.stringify(data, null, 2);
 }
 
+async function copyTextToClipboard(text: string): Promise<void> {
+  if (copyTextWithTextarea(text)) {
+    return;
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.clipboard) {
+    await navigator.clipboard.writeText(text);
+  }
+}
+
+function copyTextWithTextarea(text: string): boolean {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', 'true');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand('copy');
+  textarea.remove();
+  return copied;
+}
+
 export default function Dashboard() {
   const [matters, setMatters] = useState<PersistedMatter[]>([]);
   const [selectedMatter, setSelectedMatter] = useState<PersistedMatter | null>(null);
@@ -389,6 +480,8 @@ export default function Dashboard() {
   const [wizardPayload, setWizardPayload] = useState('');
   const [wizardError, setWizardError] = useState('');
   const [wizardAnalysis, setWizardAnalysis] = useState<AnalysisResult | null>(null);
+  const [policyHealth, setPolicyHealth] = useState<PolicyHealth | null>(null);
+  const [storageDiagnostics, setStorageDiagnostics] = useState<StorageDiagnostic[]>([]);
 
   const showToast = useCallback((type: 'success' | 'error', message: string) => {
     setToast({ type, message });
@@ -401,6 +494,11 @@ export default function Dashboard() {
       const data = await response.json();
       if (Array.isArray(data)) {
         setMatters(data);
+        setStorageDiagnostics([]);
+      } else if (Array.isArray(data.matters)) {
+        setMatters(data.matters);
+        setStorageDiagnostics(Array.isArray(data.diagnostics) ? data.diagnostics : []);
+        setPolicyHealth(data.policyHealth ?? null);
       }
     } catch {
       showToast('error', 'Matter queue could not be loaded.');
@@ -425,10 +523,11 @@ export default function Dashboard() {
       }
       setSelectedMatter(result.matter);
       setAnalysis(result);
+      setPolicyHealth(result.policyHealth ?? policyHealth);
     } catch {
       showToast('error', 'Matter analysis API could not be reached.');
     }
-  }, [showToast]);
+  }, [policyHealth, showToast]);
 
   const handleSeedData = async () => {
     try {
@@ -536,6 +635,20 @@ export default function Dashboard() {
     void runWizardAnalysis(wizardSchema, value);
   };
 
+  const wizardData = useMemo(() => {
+    try {
+      const parsed = JSON.parse(wizardPayload);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as MatterData : null;
+    } catch {
+      return null;
+    }
+  }, [wizardPayload]);
+
+  const updateWizardField = (field: string, value: unknown) => {
+    if (!wizardData) return;
+    handleWizardPayloadChange(stringifyData({ ...wizardData, [field]: value }));
+  };
+
   const runWizardAnalysis = async (schema: SchemaType, payload: string) => {
     try {
       const data = JSON.parse(payload) as MatterData;
@@ -603,7 +716,7 @@ export default function Dashboard() {
     const rows = analysis.evidencePack.items
       .map(item => `- ${item.title}: ${item.status}, ${item.evidenceRequired.join('; ')}`)
       .join('\n');
-    await navigator.clipboard.writeText([
+    await copyTextToClipboard([
       `# Evidence Pack: ${selectedMatter.name}`,
       `Readiness: ${analysis.evidencePack.readiness}`,
       '',
@@ -622,7 +735,7 @@ export default function Dashboard() {
         `Approvals: ${deviation.approvalRequired.join(', ') || 'None'}`
       ].join('\n'))
       .join('\n\n');
-    await navigator.clipboard.writeText([
+    await copyTextToClipboard([
       `# Contract Playbook: ${selectedMatter.name}`,
       '',
       analysis.contractPlaybook.negotiationSummary,
@@ -632,9 +745,15 @@ export default function Dashboard() {
     showToast('success', 'Playbook memo copied.');
   };
 
+  const copyDecisionPacket = async () => {
+    if (!analysis?.decisionPacket) return;
+    await copyTextToClipboard(JSON.stringify(analysis.decisionPacket, null, 2));
+    showToast('success', 'Decision packet JSON copied.');
+  };
+
   const metrics = useMemo(() => {
     const pending = matters.filter(matter => matter.status === 'pending_review').length;
-    const blocked = matters.filter(matter => matter.riskLevel === 'escalate' || matter.evidenceReadiness === 'blocked').length;
+    const blocked = matters.filter(matter => matter.riskLevel === 'escalate' || matter.evidenceReadiness === 'blocked' || (matter.regulatoryMatrixGaps ?? 0) > 0).length;
     const approved = matters.filter(matter => matter.status === 'approved').length;
     const coverage = matters.length === 0 ? 100 : Math.round((approved / matters.length) * 100);
     return { pending, blocked, approved, coverage };
@@ -713,6 +832,8 @@ export default function Dashboard() {
           </div>
         ))}
       </section>
+
+      <HealthStrip policyHealth={policyHealth} diagnostics={storageDiagnostics} />
 
       <div className="portal-layout">
         <section className="queue-panel" aria-label="Matter queue">
@@ -823,7 +944,7 @@ export default function Dashboard() {
                     className={activeTab === tab ? 'active' : ''}
                     onClick={() => setActiveTab(tab)}
                   >
-                    {tab === 'plan' ? 'Action plan' : tab}
+                    {tab === 'plan' ? 'Action plan' : tab === 'packet' ? 'Decision packet' : tab}
                   </button>
                 ))}
               </nav>
@@ -842,8 +963,16 @@ export default function Dashboard() {
                     <EvidenceTab pack={analysis.evidencePack} onCopy={() => void copyEvidenceMemo()} />
                   )}
 
+                  {activeTab === 'matrix' && (
+                    <RegulatoryMatrixTab matrix={analysis.regulatoryMatrix} />
+                  )}
+
                   {activeTab === 'playbook' && (
                     <PlaybookTab playbook={analysis.contractPlaybook} onCopy={() => void copyPlaybookMemo()} />
+                  )}
+
+                  {activeTab === 'packet' && (
+                    <DecisionPacketTab packet={analysis.decisionPacket} onCopy={() => void copyDecisionPacket()} />
                   )}
 
                   {activeTab === 'history' && (
@@ -958,16 +1087,26 @@ export default function Dashboard() {
                     ))}
                   </select>
                 </label>
-                <label>
-                  Structured intake payload
+                {wizardData ? (
+                  <GuidedIntakeFields
+                    template={workflowFor(wizardSchema).defaultData}
+                    data={wizardData}
+                    validationErrors={wizardAnalysis?.validation?.errors ?? []}
+                    onChange={updateWizardField}
+                  />
+                ) : (
+                  <p className="error-text">Guided fields are unavailable until the JSON payload parses.</p>
+                )}
+                <details className="advanced-json">
+                  <summary>Advanced JSON editor</summary>
                   <textarea
                     className="json-input"
                     spellCheck={false}
-                    rows={22}
+                    rows={16}
                     value={wizardPayload}
                     onChange={event => handleWizardPayloadChange(event.target.value)}
                   />
-                </label>
+                </details>
                 <div className="decision-actions">
                   <button type="button" className="secondary-button" onClick={() => void handleSaveWizard('draft')}>
                     Save draft
@@ -991,7 +1130,19 @@ export default function Dashboard() {
                       <strong>{wizardAnalysis.actionPlan?.reviewGate}</strong>
                       <span>Evidence</span>
                       <strong>{wizardAnalysis.evidencePack?.readiness}</strong>
+                      <span>Matrix gaps</span>
+                      <strong>{wizardAnalysis.regulatoryMatrix?.gaps.length ?? 0}</strong>
                     </div>
+                    {wizardAnalysis.validation && !wizardAnalysis.validation.valid && (
+                      <>
+                        <h4>Validation summary</h4>
+                        <ul className="plain-list">
+                          {(wizardAnalysis.validation.errors ?? []).map(error => (
+                            <li key={error}>{error}</li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
                     <h4>Trigger reasons</h4>
                     <ul className="plain-list">
                       {wizardAnalysis.risk?.reasons.map(reason => (
@@ -1011,178 +1162,3 @@ export default function Dashboard() {
   );
 }
 
-function Metric(props: { label: string; value: string; detail: string; tone: 'neutral' | 'success' | 'warning' | 'danger' }) {
-  return (
-    <div className={`metric-card ${props.tone}`}>
-      <span>{props.label}</span>
-      <strong>{props.value}</strong>
-      <p>{props.detail}</p>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: MatterStatus }) {
-  return <span className={`status-badge ${status}`}>{formatStatus(status)}</span>;
-}
-
-function RiskBadge({ level }: { level: RiskLevel }) {
-  return <span className={`risk-badge ${level}`}>{level}</span>;
-}
-
-function OverviewTab({ matter, analysis }: { matter: PersistedMatter; analysis: AnalysisResult }) {
-  const validationErrors = analysis.validation?.errors ?? [];
-  return (
-    <div className="stack">
-      <div className="summary-list">
-        <span>Validation</span>
-        <strong>{analysis.validation?.valid ? 'Schema valid' : 'Schema errors'}</strong>
-        <span>Risk level</span>
-        <strong><RiskBadge level={analysis.risk?.level ?? 'low'} /></strong>
-        <span>Review gate</span>
-        <strong>{analysis.actionPlan?.reviewGate ?? 'self-serve'}</strong>
-        <span>Evidence readiness</span>
-        <strong>{analysis.evidencePack?.readiness ?? 'ready'}</strong>
-      </div>
-
-      {validationErrors.length > 0 && (
-        <section className="issue-section">
-          <h3>Validation issues</h3>
-          <ul className="plain-list">
-            {validationErrors.map(error => <li key={error}>{error}</li>)}
-          </ul>
-        </section>
-      )}
-
-      <section className="issue-section">
-        <h3>Risk reasons</h3>
-        <ul className="plain-list">
-          {analysis.risk?.reasons.map(reason => <li key={reason}>{reason}</li>)}
-        </ul>
-      </section>
-
-      <section className="issue-section">
-        <h3>Source payload</h3>
-        <pre className="json-block">{JSON.stringify(matter.data, null, 2)}</pre>
-      </section>
-    </div>
-  );
-}
-
-function ActionPlanTab({ plan, risk }: { plan?: LegalActionPlan; risk?: RiskAssessment }) {
-  if (!plan) return <p>No action plan generated.</p>;
-  return (
-    <div className="stack">
-      <div className="summary-list">
-        <span>Priority</span>
-        <strong>{plan.priority}</strong>
-        <span>Review gate</span>
-        <strong>{plan.reviewGate}</strong>
-        <span>Risk</span>
-        <strong><RiskBadge level={risk?.level ?? 'low'} /></strong>
-      </div>
-      <section className="issue-section">
-        <h3>Summary</h3>
-        <p>{plan.summary}</p>
-      </section>
-      <section className="issue-section highlight">
-        <h3>Next action</h3>
-        <p>{plan.nextAction}</p>
-      </section>
-      <ListSection title="Required approvals" values={plan.requiredApprovals} />
-      <ListSection title="Blockers" values={plan.blockers} empty="No blockers." />
-      <ListSection title="Follow-ups" values={plan.followUps} />
-      <ListSection title="Evidence to collect" values={plan.evidenceToCollect} />
-    </div>
-  );
-}
-
-function EvidenceTab({ pack, onCopy }: { pack?: EvidencePack; onCopy: () => void }) {
-  if (!pack) return <p>No evidence pack generated.</p>;
-  return (
-    <div className="stack">
-      <div className="split-heading">
-        <div className="summary-list">
-          <span>Readiness</span>
-          <strong>{pack.readiness}</strong>
-          <span>Open evidence</span>
-          <strong>{pack.missingEvidence.length}</strong>
-          <span>Human review</span>
-          <strong>{pack.humanReviewRequired ? 'Required' : 'Self-serve'}</strong>
-        </div>
-        <button type="button" className="secondary-button" onClick={onCopy}>Copy memo</button>
-      </div>
-
-      <div className="evidence-list">
-        {pack.items.map(item => (
-          <article key={item.id} className="evidence-row">
-            <div>
-              <strong>{item.title}</strong>
-              <span>{item.framework} | {item.priority} | {item.status}</span>
-            </div>
-            <p>{item.evidenceRequired.join('; ')}</p>
-          </article>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function PlaybookTab({ playbook, onCopy }: { playbook?: ContractPlaybook; onCopy: () => void }) {
-  if (!playbook) return <p>No contract playbook applies to this matter.</p>;
-  return (
-    <div className="stack">
-      <div className="split-heading">
-        <div>
-          <h3>Negotiation summary</h3>
-          <p>{playbook.negotiationSummary}</p>
-        </div>
-        <button type="button" className="secondary-button" onClick={onCopy}>Copy memo</button>
-      </div>
-      <ListSection title="Non-starters" values={playbook.nonStarters.map(item => item.issue)} empty="No non-starters." />
-      <ListSection title="Approvals" values={playbook.approvalRequired} />
-      <div className="evidence-list">
-        {playbook.deviations.map(deviation => (
-          <article key={deviation.id} className="evidence-row">
-            <div>
-              <strong>{deviation.issue}</strong>
-              <span>{deviation.category} | {deviation.severity}</span>
-            </div>
-            <p>{deviation.fallbackPosition}</p>
-          </article>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function AuditTab({ auditLog }: { auditLog: AuditEvent[] }) {
-  return (
-    <div className="audit-list">
-      {auditLog.map((event, index) => (
-        <article key={`${event.timestamp}-${index}`} className="audit-row">
-          <div>
-            <strong>{event.action}</strong>
-            <span>{formatDate(event.timestamp)}</span>
-          </div>
-          <p>{event.actor}</p>
-          <p>{event.notes}</p>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function ListSection({ title, values, empty = 'None.' }: { title: string; values: string[]; empty?: string }) {
-  return (
-    <section className="issue-section">
-      <h3>{title}</h3>
-      {values.length > 0 ? (
-        <ul className="plain-list">
-          {values.map(value => <li key={value}>{value}</li>)}
-        </ul>
-      ) : (
-        <p>{empty}</p>
-      )}
-    </section>
-  );
-}

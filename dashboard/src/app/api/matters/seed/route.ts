@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { saveMatter, type PersistedMatter } from '@core/storage';
+import { assertMatterCreationAllowed, saveMatter, type PersistedMatter } from '@core/storage';
+import { validateJSON } from '@core/validate';
+import { isSchemaType, loadSchemaForType, requireRepoRoot, schemaPrefixForType } from '@core/workflows';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -56,13 +58,21 @@ const SEED_MATTERS = [
 
 export async function POST() {
   try {
-    const examplesDir = path.resolve(process.cwd(), '../examples');
+    const examplesDir = path.resolve(requireRepoRoot(), 'examples');
     const created: string[] = [];
 
     for (const item of SEED_MATTERS) {
-      const filePath = path.join(examplesDir, item.filename);
+      if (!isSchemaType(item.schemaType)) {
+        throw new Error(`Unsupported seed schema type: ${item.schemaType}`);
+      }
+      assertMatterCreationAllowed(item.status);
+      const filePath = path.join(examplesDir, item.filename || `${schemaPrefixForType(item.schemaType)}.example.json`);
       if (fs.existsSync(filePath)) {
         const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        const validation = validateJSON(loadSchemaForType(item.schemaType), data);
+        if (!validation.valid) {
+          throw new Error(`Seed example ${item.filename} failed validation: ${validation.errors?.join('; ')}`);
+        }
         const matter: PersistedMatter = {
           id: item.id,
           name: item.name,

@@ -1,37 +1,53 @@
 import { NextResponse } from 'next/server';
-import { isMatterStatus, listMatters, saveMatter, type PersistedMatter } from '@core/storage';
-import { calculateRisk } from '@core/risk-scoring';
+import {
+  assertMatterCreationAllowed,
+  isMatterStatus,
+  listMattersWithDiagnostics,
+  saveMatter,
+  validateMatterId,
+  type PersistedMatter
+} from '@core/storage';
+import { calculateRisk, getPolicyHealth } from '@core/risk-scoring';
 import { validateJSON } from '@core/validate';
 import { createLegalActionPlan } from '@core/action-plan';
 import { createEvidencePack } from '@core/evidence-pack';
 import { createContractPlaybookReview } from '@core/contract-playbook';
-import * as fs from 'fs';
-import * as path from 'path';
+import { createRegulatoryObligationMatrix } from '@core/regulatory-matrix';
+import { createDecisionPacket } from '@core/decision-packet';
+import { isSchemaType, loadSchemaForType } from '@core/workflows';
 
 export async function GET() {
   try {
-    const matters = listMatters();
+    const { matters, diagnostics } = listMattersWithDiagnostics();
     const enriched = matters.map(matter => {
       const risk = calculateRisk(matter.schemaType, matter.data);
       const actionPlan = createLegalActionPlan(matter.schemaType, matter.data, { risk });
       const evidencePack = createEvidencePack(matter.schemaType, matter.data, { actionPlan, risk });
+      const regulatoryMatrix = createRegulatoryObligationMatrix(matter.schemaType, matter.data, { actionPlan, risk });
 
       return {
         ...matter,
         riskLevel: risk.level,
         reviewGate: actionPlan.reviewGate,
-        evidenceReadiness: evidencePack.readiness
+        evidenceReadiness: evidencePack.readiness,
+        regulatoryMatrixGaps: regulatoryMatrix.gaps.length
       };
     });
 
-    return NextResponse.json(enriched.sort((a, b) => {
+    const sorted = enriched.sort((a, b) => {
       const aTime = a.auditLog[a.auditLog.length - 1]?.timestamp || '';
       const bTime = b.auditLog[b.auditLog.length - 1]?.timestamp || '';
       return bTime.localeCompare(aTime);
-    }));
+    });
+
+    return NextResponse.json({
+      matters: sorted,
+      diagnostics,
+      policyHealth: getPolicyHealth()
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: message, policyHealth: getPolicyHealth() }, { status: 500 });
   }
 }
 
@@ -45,26 +61,46 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required fields: id, name, schemaType, data' }, { status: 400 });
     }
 
+    try {
+      validateMatterId(id);
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
+    }
+
     if (!isMatterStatus(status)) {
       return NextResponse.json({ error: `Unsupported matter status: ${status}` }, { status: 400 });
     }
 
-    // Try to load schema
-    const schemaFilename = schemaType.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
-    const schemaPath = path.resolve(process.cwd(), `../schemas/${schemaFilename}.schema.json`);
-    
-    if (!fs.existsSync(schemaPath)) {
-      return NextResponse.json({ error: `Schema for type ${schemaType} not found` }, { status: 404 });
+    try {
+      assertMatterCreationAllowed(status);
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
     }
 
-    const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
+    if (!isSchemaType(schemaType)) {
+      return NextResponse.json({ error: `Unsupported schema type: ${schemaType}` }, { status: 400 });
+    }
+
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return NextResponse.json({ error: 'data must be a JSON object' }, { status: 400 });
+    }
+
+    const generatedAt = new Date().toISOString();
+    const schema = loadSchemaForType(schemaType);
     const validation = validateJSON(schema, data);
+    if (!validation.valid && status !== 'draft') {
+      return NextResponse.json({
+        error: 'Invalid payloads can only be saved as explicit draft matters',
+        validation
+      }, { status: 422 });
+    }
 
     const risk = calculateRisk(schemaType, data);
     const actionPlan = createLegalActionPlan(schemaType, data, { risk });
-    const evidencePack = createEvidencePack(schemaType, data, { actionPlan, risk });
+    const evidencePack = createEvidencePack(schemaType, data, { actionPlan, generatedAt, risk });
+    const regulatoryMatrix = createRegulatoryObligationMatrix(schemaType, data, { actionPlan, generatedAt, risk });
     const contractPlaybook = schemaType === 'SaaSContractIntake'
-      ? createContractPlaybookReview(data, { actionPlan, risk })
+      ? createContractPlaybookReview(data, { actionPlan, generatedAt, risk })
       : undefined;
 
     const matter: PersistedMatter = {
@@ -73,17 +109,28 @@ export async function POST(request: Request) {
       schemaType,
       data,
       status,
+      validationErrors: validation.valid ? undefined : validation.errors ?? ['Payload failed validation'],
       auditLog: [
         {
-          timestamp: new Date().toISOString(),
+          timestamp: generatedAt,
           action: 'Matter created',
           actor,
-          notes
+          notes: validation.valid ? notes : `${notes} Validation errors captured on draft.`
         }
       ]
     };
 
     saveMatter(matter);
+    const decisionPacket = createDecisionPacket({
+      matter,
+      validation,
+      risk,
+      actionPlan,
+      evidencePack,
+      regulatoryMatrix,
+      contractPlaybook,
+      generatedAt
+    });
 
     return NextResponse.json({
       success: true,
@@ -92,10 +139,13 @@ export async function POST(request: Request) {
       risk,
       actionPlan,
       evidencePack,
-      contractPlaybook
+      regulatoryMatrix,
+      contractPlaybook,
+      policyHealth: getPolicyHealth(),
+      decisionPacket
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: message, policyHealth: getPolicyHealth() }, { status: 500 });
   }
 }

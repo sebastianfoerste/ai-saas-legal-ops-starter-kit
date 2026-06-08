@@ -14,8 +14,18 @@ This checklist tracks the requirements for deploying the AI SaaS Legal Ops Start
   - Contract playbook tests produce deterministic fallback positions, non-starters, approvals, and reviewer notes.
 - [ ] **Evidence Pack Readiness Works**
   - Evidence-pack tests produce deterministic JSON and Markdown for product launch, AI vendor, and DPA matters.
+- [ ] **Regulatory Matrix Works**
+  - Matrix tests produce expected AI Act, GDPR, DORA, Data Act, CRA, OWASP GenAI, and internal-policy rows with owners, readiness states, and evidence requirements.
+- [ ] **Decision Packet Export Works**
+  - Decision packet tests include source payload, validation, risk, action plan, evidence pack, regulatory matrix, playbook deviations where applicable, transition history, and SHA-256 manifest.
 - [ ] **Demo CLI Works**
   - `npm run demo` and `npm run demo:json` produce end-to-end reports from bundled public-safe examples.
+- [ ] **Policy Health Visible**
+  - `legal-ops-demo policy-health`, dashboard analysis responses, and dashboard health strip expose valid, missing, invalid JSON, invalid shape, unsupported operator, and unresolved path states.
+- [ ] **Package Publishability Works**
+  - `npm run check:package` builds, imports `dist/src/index.js`, verifies root exports and CLI bin path, and runs `npm pack --dry-run` against the files whitelist.
+- [ ] **Supply-Chain Gates Run**
+  - CI runs root `npm audit --omit=dev` and dashboard production audit. The current dashboard Next/PostCSS advisory (`GHSA-qx2v-qp2m-jg93`) is a documented temporary exception only. Do not use `npm audit fix --force`.
 - [ ] **No Secrets**
   - No api keys, passwords, private SSH keys, or cloud credentials exist in the codebase.
 - [ ] **No Client Data**

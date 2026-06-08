@@ -26,6 +26,12 @@ jobs:
     - name: Install dashboard dependencies
       run: npm --prefix dashboard ci
 
+    - name: Audit root production dependencies
+      run: npm run audit:root
+
+    - name: Audit dashboard production dependencies
+      run: npm run audit:dashboard
+
     - name: Type check
       run: npm run typecheck
 
@@ -34,6 +40,9 @@ jobs:
 
     - name: Validate examples
       run: npm run validate:examples
+
+    - name: Package smoke and pack dry run
+      run: npm run check:package
 
     - name: Lint dashboard
       run: npm run dashboard:lint

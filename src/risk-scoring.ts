@@ -1,11 +1,16 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { SCHEMA_TYPES, normalizeSchemaType, resolveRepoRoot } from './workflows.js';
 
 export type RiskLevel = 'low' | 'medium' | 'high' | 'escalate';
 
 export interface RiskAssessment {
   level: RiskLevel;
   reasons: string[];
+}
+
+export interface RiskScoringOptions {
+  policyStartDir?: string;
 }
 
 export interface RiskRule {
@@ -251,10 +256,35 @@ export const registeredRules: RiskRule[] = [
   }
 ];
 
+export const RISK_LEVELS = ['low', 'medium', 'high', 'escalate'] as const;
+export const CONDITION_OPERATORS = ['equals', 'contains', 'true', 'false', 'empty', 'not_empty'] as const;
+
+export type ConditionOperator = typeof CONDITION_OPERATORS[number];
+export type PolicyHealthStatus =
+  | 'valid'
+  | 'missing'
+  | 'invalid_json'
+  | 'invalid_shape'
+  | 'unsupported_operator'
+  | 'unresolved_path';
+
+export interface PolicyHealth {
+  status: PolicyHealthStatus;
+  path?: string;
+  loadedRules: number;
+  errors: string[];
+  searchedFrom: string[];
+}
+
+export interface PolicyRuleLoadResult {
+  health: PolicyHealth;
+  rules: RiskRule[];
+}
+
 interface Condition {
   field: string;
-  operator: 'equals' | 'contains' | 'true' | 'false' | 'empty' | 'not_empty';
-  value?: any;
+  operator: ConditionOperator;
+  value?: unknown;
 }
 
 interface CustomJsonRule {
@@ -287,20 +317,70 @@ function evaluateCondition(data: any, cond: Condition): boolean {
       return val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0);
     case 'not_empty':
       return val !== undefined && val !== null && val !== '' && (!Array.isArray(val) || val.length > 0);
-    default:
-      return false;
   }
 }
 
-export function loadConfigRules(): RiskRule[] {
-  const configPath = path.resolve(process.cwd(), 'policies', 'rules.json');
-  if (!fs.existsSync(configPath)) {
-    return [];
+export function resolvePolicyRulesPath(startDir = process.cwd()): { path?: string; searchedFrom: string[]; error?: string } {
+  const resolution = resolveRepoRoot(startDir);
+  if (!resolution.rootDir) {
+    return {
+      searchedFrom: resolution.searchedFrom,
+      error: resolution.reason ?? 'Unable to resolve repository root'
+    };
   }
+
+  return {
+    path: path.resolve(resolution.rootDir, 'policies', 'rules.json'),
+    searchedFrom: resolution.searchedFrom
+  };
+}
+
+export function loadPolicyRuleConfig(startDir = process.cwd()): PolicyRuleLoadResult {
+  const resolved = resolvePolicyRulesPath(startDir);
+  if (!resolved.path) {
+    return {
+      rules: [],
+      health: {
+        status: 'unresolved_path',
+        loadedRules: 0,
+        errors: [resolved.error ?? 'Unable to resolve policies/rules.json'],
+        searchedFrom: resolved.searchedFrom
+      }
+    };
+  }
+
+  if (!fs.existsSync(resolved.path)) {
+    return {
+      rules: [],
+      health: {
+        status: 'missing',
+        path: resolved.path,
+        loadedRules: 0,
+        errors: [`No custom policy file found at ${resolved.path}`],
+        searchedFrom: resolved.searchedFrom
+      }
+    };
+  }
+
   try {
-    const raw = fs.readFileSync(configPath, 'utf8');
-    const json = JSON.parse(raw) as CustomJsonRule[];
-    return json.map(rule => ({
+    const raw = fs.readFileSync(resolved.path, 'utf8');
+    const json = JSON.parse(raw) as unknown;
+    const validation = validatePolicyRules(json);
+
+    if (!validation.valid) {
+      return {
+        rules: [],
+        health: {
+          status: validation.status,
+          path: resolved.path,
+          loadedRules: 0,
+          errors: validation.errors,
+          searchedFrom: resolved.searchedFrom
+        }
+      };
+    }
+
+    const rules: RiskRule[] = validation.rules.map((rule): RiskRule => ({
       id: rule.id,
       name: rule.name,
       schemaTypes: rule.schemaTypes,
@@ -311,9 +391,131 @@ export function loadConfigRules(): RiskRule[] {
         }
       }
     }));
+
+    return {
+      rules,
+      health: {
+        status: 'valid',
+        path: resolved.path,
+        loadedRules: rules.length,
+        errors: [],
+        searchedFrom: resolved.searchedFrom
+      }
+    };
   } catch (error) {
-    return [];
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      rules: [],
+      health: {
+        status: 'invalid_json',
+        path: resolved.path,
+        loadedRules: 0,
+        errors: [`Invalid JSON in policy file: ${message}`],
+        searchedFrom: resolved.searchedFrom
+      }
+    };
   }
+}
+
+export function getPolicyHealth(startDir = process.cwd()): PolicyHealth {
+  return loadPolicyRuleConfig(startDir).health;
+}
+
+export function loadConfigRules(startDir = process.cwd()): RiskRule[] {
+  const loaded = loadPolicyRuleConfig(startDir);
+  if (loaded.health.status === 'valid' || loaded.health.status === 'missing') {
+    return loaded.rules;
+  }
+  throw new Error(`Policy rules failed health check (${loaded.health.status}): ${loaded.health.errors.join('; ')}`);
+}
+
+function validatePolicyRules(value: unknown): { valid: true; rules: CustomJsonRule[] } | { valid: false; status: 'invalid_shape' | 'unsupported_operator'; errors: string[] } {
+  const errors: string[] = [];
+  let hasUnsupportedOperator = false;
+
+  if (!Array.isArray(value)) {
+    return {
+      valid: false,
+      status: 'invalid_shape',
+      errors: ['Policy rules file must contain an array of rule objects']
+    };
+  }
+
+  value.forEach((rule, index) => {
+    const prefix = `rules[${index}]`;
+    if (!isPlainObject(rule)) {
+      errors.push(`${prefix} must be an object`);
+      return;
+    }
+
+    if (!isNonEmptyString(rule.id)) {
+      errors.push(`${prefix}.id must be a non-empty string`);
+    }
+    if (!isNonEmptyString(rule.name)) {
+      errors.push(`${prefix}.name must be a non-empty string`);
+    }
+    if (!Array.isArray(rule.schemaTypes) || rule.schemaTypes.length === 0) {
+      errors.push(`${prefix}.schemaTypes must be a non-empty array`);
+    } else {
+      rule.schemaTypes.forEach((schemaType: unknown, schemaIndex: number) => {
+        if (!isNonEmptyString(schemaType)) {
+          errors.push(`${prefix}.schemaTypes[${schemaIndex}] must be a non-empty string`);
+          return;
+        }
+        const normalized = normalizeSchemaType(schemaType);
+        const isAllowed = schemaType === '*'
+          || SCHEMA_TYPES.some(allowed => normalizeSchemaType(allowed) === normalized);
+        if (!isAllowed) {
+          errors.push(`${prefix}.schemaTypes[${schemaIndex}] is not a supported schema type: ${schemaType}`);
+        }
+      });
+    }
+    if (!isNonEmptyString(rule.level) || !(RISK_LEVELS as readonly string[]).includes(rule.level)) {
+      errors.push(`${prefix}.level must be one of ${RISK_LEVELS.join(', ')}`);
+    }
+    if (!Array.isArray(rule.conditions) || rule.conditions.length === 0) {
+      errors.push(`${prefix}.conditions must be a non-empty array`);
+    } else {
+      rule.conditions.forEach((condition: unknown, conditionIndex: number) => {
+        const conditionPrefix = `${prefix}.conditions[${conditionIndex}]`;
+        if (!isPlainObject(condition)) {
+          errors.push(`${conditionPrefix} must be an object`);
+          return;
+        }
+        if (!isNonEmptyString(condition.field)) {
+          errors.push(`${conditionPrefix}.field must be a non-empty string`);
+        }
+        if (!isNonEmptyString(condition.operator) || !(CONDITION_OPERATORS as readonly string[]).includes(condition.operator)) {
+          hasUnsupportedOperator = true;
+          errors.push(`${conditionPrefix}.operator is unsupported: ${String(condition.operator)}`);
+        }
+        if ((condition.operator === 'equals' || condition.operator === 'contains') && condition.value === undefined) {
+          errors.push(`${conditionPrefix}.value is required for ${condition.operator} conditions`);
+        }
+      });
+    }
+    if (!isNonEmptyString(rule.message)) {
+      errors.push(`${prefix}.message must be a non-empty string`);
+    }
+  });
+
+  if (errors.length > 0) {
+    return {
+      valid: false,
+      status: hasUnsupportedOperator ? 'unsupported_operator' : 'invalid_shape',
+      errors
+    };
+  }
+
+  return { valid: true, rules: value as CustomJsonRule[] };
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
 }
 
 /**
@@ -322,8 +524,9 @@ export function loadConfigRules(): RiskRule[] {
  * 
  * @param schemaType The schema title or document type (e.g. 'SaaSContractIntake', 'DPATriage', 'AIVendorReview', 'OpenSourceReview', 'CustomerCommitment', 'ProductLaunchIntake')
  * @param data The JSON data payload validated against the respective schema.
+ * @param options Optional policy resolution controls for tests, CLI, and dashboard.
  */
-export function calculateRisk(schemaType: string, data: any): RiskAssessment {
+export function calculateRisk(schemaType: string, data: any, options: RiskScoringOptions = {}): RiskAssessment {
   const reasons: string[] = [];
   let currentMaxLevel: RiskLevel = 'low';
 
@@ -338,7 +541,7 @@ export function calculateRisk(schemaType: string, data: any): RiskAssessment {
   const typeKey = schemaType.toLowerCase().replace(/[^a-z]/g, '');
 
   // Load custom dynamic rules from policy file
-  const configRules = loadConfigRules();
+  const configRules = loadConfigRules(options.policyStartDir);
   const allRules = [...registeredRules, ...configRules];
 
   // Run all registered rules

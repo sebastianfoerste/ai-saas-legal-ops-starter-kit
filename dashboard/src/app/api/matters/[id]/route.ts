@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
-import { loadMatter, deleteMatter } from '@core/storage';
-import { calculateRisk } from '@core/risk-scoring';
-import { validateJSON, type ValidationResult } from '@core/validate';
+import { loadMatterWithDiagnostics, deleteMatter, validateMatterId } from '@core/storage';
+import { calculateRisk, getPolicyHealth } from '@core/risk-scoring';
+import { validateJSON } from '@core/validate';
 import { createLegalActionPlan } from '@core/action-plan';
 import { createEvidencePack } from '@core/evidence-pack';
 import { createContractPlaybookReview } from '@core/contract-playbook';
-import * as fs from 'fs';
-import * as path from 'path';
+import { createRegulatoryObligationMatrix } from '@core/regulatory-matrix';
+import { createDecisionPacket } from '@core/decision-packet';
+import { loadSchemaForType } from '@core/workflows';
 
 export async function GET(
   request: Request,
@@ -14,27 +15,31 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const matter = loadMatter(id);
+    const { matter, diagnostic } = loadMatterWithDiagnostics(id);
     if (!matter) {
-      return NextResponse.json({ error: `Matter with ID ${id} not found` }, { status: 404 });
+      return NextResponse.json({ error: diagnostic?.reason ?? `Matter with ID ${id} not found` }, { status: diagnostic ? 400 : 404 });
     }
 
-    // Try to load schema
-    const schemaFilename = matter.schemaType.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
-    const schemaPath = path.resolve(process.cwd(), `../schemas/${schemaFilename}.schema.json`);
-    
-    let validation: ValidationResult = { valid: true, errors: [] };
-    if (fs.existsSync(schemaPath)) {
-      const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
-      validation = validateJSON(schema, matter.data);
-    }
-
+    const generatedAt = new Date().toISOString();
+    const schema = loadSchemaForType(matter.schemaType);
+    const validation = validateJSON(schema, matter.data);
     const risk = calculateRisk(matter.schemaType, matter.data);
     const actionPlan = createLegalActionPlan(matter.schemaType, matter.data, { risk });
-    const evidencePack = createEvidencePack(matter.schemaType, matter.data, { actionPlan, risk });
+    const evidencePack = createEvidencePack(matter.schemaType, matter.data, { actionPlan, generatedAt, risk });
+    const regulatoryMatrix = createRegulatoryObligationMatrix(matter.schemaType, matter.data, { actionPlan, generatedAt, risk });
     const contractPlaybook = matter.schemaType === 'SaaSContractIntake'
-      ? createContractPlaybookReview(matter.data, { actionPlan, risk })
+      ? createContractPlaybookReview(matter.data, { actionPlan, generatedAt, risk })
       : undefined;
+    const decisionPacket = createDecisionPacket({
+      matter,
+      validation,
+      risk,
+      actionPlan,
+      evidencePack,
+      regulatoryMatrix,
+      contractPlaybook,
+      generatedAt
+    });
 
     return NextResponse.json({
       matter,
@@ -42,11 +47,14 @@ export async function GET(
       risk,
       actionPlan,
       evidencePack,
-      contractPlaybook
+      regulatoryMatrix,
+      contractPlaybook,
+      policyHealth: getPolicyHealth(),
+      decisionPacket
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: message, policyHealth: getPolicyHealth() }, { status: 500 });
   }
 }
 
@@ -56,6 +64,11 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    try {
+      validateMatterId(id);
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
+    }
     const deleted = deleteMatter(id);
     if (!deleted) {
       return NextResponse.json({ error: `Matter with ID ${id} not found` }, { status: 404 });
