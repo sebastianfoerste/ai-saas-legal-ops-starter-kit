@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
-import { calculateRisk } from '@core/risk-scoring';
-import { validateJSON, type ValidationResult } from '@core/validate';
+import { calculateRisk, getPolicyHealth } from '@core/risk-scoring';
+import { validateJSON } from '@core/validate';
 import { createLegalActionPlan } from '@core/action-plan';
 import { createEvidencePack } from '@core/evidence-pack';
 import { createContractPlaybookReview } from '@core/contract-playbook';
-import * as fs from 'fs';
-import * as path from 'path';
+import { createRegulatoryObligationMatrix } from '@core/regulatory-matrix';
+import { createDecisionPacket } from '@core/decision-packet';
+import { isSchemaType, loadSchemaForType } from '@core/workflows';
 
 export async function POST(request: Request) {
   try {
@@ -16,32 +17,49 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing schemaType or data' }, { status: 400 });
     }
 
-    // Try to load schema
-    const schemaFilename = schemaType.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
-    const schemaPath = path.resolve(process.cwd(), `../schemas/${schemaFilename}.schema.json`);
-    
-    let validation: ValidationResult = { valid: true, errors: [] };
-    if (fs.existsSync(schemaPath)) {
-      const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8'));
-      validation = validateJSON(schema, data);
+    if (!isSchemaType(schemaType)) {
+      return NextResponse.json({ error: `Unsupported schema type: ${schemaType}` }, { status: 400 });
     }
 
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return NextResponse.json({ error: 'data must be a JSON object' }, { status: 400 });
+    }
+
+    const generatedAt = new Date().toISOString();
+    const policyHealth = getPolicyHealth();
+    const schema = loadSchemaForType(schemaType);
+    const validation = validateJSON(schema, data);
     const risk = calculateRisk(schemaType, data);
     const actionPlan = createLegalActionPlan(schemaType, data, { risk });
-    const evidencePack = createEvidencePack(schemaType, data, { actionPlan, risk });
+    const evidencePack = createEvidencePack(schemaType, data, { actionPlan, generatedAt, risk });
+    const regulatoryMatrix = createRegulatoryObligationMatrix(schemaType, data, { actionPlan, generatedAt, risk });
     const contractPlaybook = schemaType === 'SaaSContractIntake'
-      ? createContractPlaybookReview(data, { actionPlan, risk })
+      ? createContractPlaybookReview(data, { actionPlan, generatedAt, risk })
       : undefined;
+    const decisionPacket = createDecisionPacket({
+      schemaType,
+      data,
+      validation,
+      risk,
+      actionPlan,
+      evidencePack,
+      regulatoryMatrix,
+      contractPlaybook,
+      generatedAt
+    });
 
     return NextResponse.json({
       validation,
       risk,
       actionPlan,
       evidencePack,
-      contractPlaybook
+      regulatoryMatrix,
+      contractPlaybook,
+      policyHealth,
+      decisionPacket
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: message, policyHealth: getPolicyHealth() }, { status: 500 });
   }
 }

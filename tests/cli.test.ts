@@ -46,10 +46,12 @@ describe('Legal Ops Demo CLI', () => {
     expect(report.allExamplesValid).toBe(true);
     expect(report.matters).toHaveLength(6);
     expect(report.riskRegister.totalMatters).toBe(6);
+    expect(report.policyHealth.status).toBe('valid');
     expect(report.matters.map(matter => matter.schemaType)).toEqual(
       expect.arrayContaining(['ProductLaunchIntake', 'AIVendorReview', 'DPATriage'])
     );
     expect(report.matters.find(matter => matter.schemaType === 'ProductLaunchIntake')?.evidencePack.readiness).toBe('blocked');
+    expect(report.matters.find(matter => matter.schemaType === 'ProductLaunchIntake')?.regulatoryMatrix.rows.length).toBeGreaterThan(0);
     expect(report.matters.find(matter => matter.schemaType === 'SaaSContractIntake')?.contractPlaybook?.deviations.length).toBeGreaterThan(0);
   });
 
@@ -67,6 +69,8 @@ describe('Legal Ops Demo CLI', () => {
     expect(markdown).toContain('## Matter Overview');
     expect(markdown).toContain('## Core Evidence Packs');
     expect(markdown).toContain('## Contract Playbook');
+    expect(markdown).toContain('## Regulatory Matrix');
+    expect(markdown).toContain('## Policy Health');
     expect(markdown).toBe(renderDemoReportMarkdown(report));
   });
 
@@ -120,6 +124,37 @@ describe('Legal Ops Demo CLI', () => {
     );
     expect(output).toContain('AI Governance Evidence Pack');
     expect(output).toContain('Triage');
+  });
+
+  test('runs policy-health subcommand', () => {
+    const output = runLegalOpsDemo(['node', 'cli', 'policy-health', '--format', 'json'], repoRoot);
+    const parsed = JSON.parse(output);
+
+    expect(parsed.status).toBe('valid');
+    expect(parsed.loadedRules).toBeGreaterThan(0);
+  });
+
+  test('runs matrix subcommand', () => {
+    const output = runLegalOpsDemo(
+      ['node', 'cli', 'matrix', '--type', 'ProductLaunchIntake', '--input', 'examples/product-launch-intake.example.json'],
+      repoRoot
+    );
+
+    expect(output).toContain('Regulatory Obligation Matrix');
+    expect(output).toContain('EU AI Act');
+    expect(output).toContain('Cyber Resilience Act');
+  });
+
+  test('runs export-decision subcommand', () => {
+    const output = runLegalOpsDemo(
+      ['node', 'cli', 'export-decision', '--type', 'SaaSContractIntake', '--input', 'examples/saas-contract-intake.example.json', '--format', 'json', '--generated-at', generatedAt],
+      repoRoot
+    );
+    const parsed = JSON.parse(output);
+
+    expect(parsed.integrityManifest.overallDigest).toMatch(/^[a-f0-9]{64}$/);
+    expect(parsed.regulatoryMatrix.rows.length).toBeGreaterThan(0);
+    expect(parsed.contractPlaybook.deviations.length).toBeGreaterThan(0);
   });
 
   test('runs register subcommand', () => {

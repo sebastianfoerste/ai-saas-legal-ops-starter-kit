@@ -28,7 +28,7 @@ The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troub
 ```
 
 ## 2. Test Suite Execution
-Running `npm run test` executes all unit tests verifying validation, deterministic risk scoring, action plans, contract playbooks, evidence packs, risk registers, and the demo CLI.
+Running `npm run test` executes all unit tests verifying validation, deterministic risk scoring, policy health, storage safety, action plans, contract playbooks, evidence packs, regulatory matrices, decision packets, risk registers, package metadata, and the demo CLI.
 
 ```text
 > @sebastianfoerste/ai-saas-legal-ops-starter-kit@1.0.0 test
@@ -38,17 +38,22 @@ The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troub
 
  RUN  v1.6.1 /Users/sebastian/Developer/ai-saas-legal-ops-starter-kit
 
- ✓ tests/risk-scoring.test.ts  (18 tests) 5ms
- ✓ tests/contract-playbook.test.ts  (5 tests) 4ms
- ✓ tests/action-plan.test.ts  (4 tests) 4ms
- ✓ tests/evidence-pack.test.ts  (5 tests) 5ms
- ✓ tests/persistence.test.ts  (6 tests) 9ms
- ✓ tests/risk-register.test.ts  (2 tests) 9ms
- ✓ tests/schema-validation.test.ts  (6 tests) 28ms
- ✓ tests/cli.test.ts  (12 tests) 55ms
+ ✓ tests/package-smoke.test.ts  (2 tests)
+ ✓ tests/action-plan.test.ts  (4 tests)
+ ✓ tests/storage-safety.test.ts  (5 tests)
+ ✓ tests/policy-health.test.ts  (4 tests)
+ ✓ tests/evidence-pack.test.ts  (5 tests)
+ ✓ tests/contract-playbook.test.ts  (5 tests)
+ ✓ tests/risk-scoring.test.ts  (18 tests)
+ ✓ tests/persistence.test.ts  (6 tests)
+ ✓ tests/regulatory-matrix.test.ts  (6 tests)
+ ✓ tests/risk-register.test.ts  (2 tests)
+ ✓ tests/schema-validation.test.ts  (6 tests)
+ ✓ tests/decision-packet.test.ts  (2 tests)
+ ✓ tests/cli.test.ts  (15 tests)
 
- Test Files  8 passed (8)
-      Tests  58 passed (58)
+ Test Files  13 passed (13)
+      Tests  80 passed (80)
 ```
 
 ## 3. TypeScript Typecheck
@@ -93,3 +98,9 @@ Running `npm run dashboard:lint` and `npm run dashboard:build` verifies the Next
 ✓ Compiled successfully in 1000ms
 ✓ Generating static pages (7/7)
 ```
+
+## 6. Package and Audit Gates
+
+Running `npm run check:package` builds the TypeScript package, imports the compiled entrypoint from `dist/src/index.js`, verifies root exports and the CLI bin path, and checks `npm pack --dry-run` output against the files whitelist.
+
+Running `npm run audit:root` executes a strict production audit for root dependencies. Running `npm run audit:dashboard` executes the dashboard production audit and allows only the documented temporary Next/PostCSS advisory path until a safe upstream upgrade is available.

@@ -18,12 +18,14 @@ This repository demonstrates:
 2.  **Deterministic Risk Scoring**: Building automated risk classification models that isolate and escalate high-risk matters (such as model training on customer data, GDPR special category processing, or unvetted public claims) without manual, human-only pipelines.
 3.  **Deterministic Action Plans**: Translating each risk score into required approvals, blockers, follow-ups, evidence requests, and audit-trail entries.
 4.  **AI Governance Evidence Packs**: Mapping product, vendor, and DPA matters to EU AI Act, GDPR, NIST AI RMF, ISO/IEC 42001, DORA, and internal-policy evidence requirements.
-5.  **Portfolio Risk Register Reporting**: Aggregating matters into board-ready counts, approval queues, overdue matters, blockers, and recommended actions.
-6.  **Contract Playbook Reviews**: Translating SaaS contract deviations into fallback positions, non-starters, approvals, and reviewer notes.
-7.  **Self-Serve CLI Demo**: Running the whole legal-ops workflow from bundled schemas and examples into Markdown or JSON reports.
-8.  **Self-Serve Playbooks**: Turning operational controls into templates that business owners can complete and run through automated validation checks.
-9.  **Production-Grade Design**: Clean TypeScript implementation, modular architectures, and structured workflows suitable for AI-native SaaS ecosystems.
-10. **Engineering Legibility**: Typed workflows, Vitest tests, and clear run paths that engineering and legal can inspect together.
+5.  **Regulatory Obligation Matrix**: Producing reviewer-facing rows for AI Act, GDPR, DORA, Data Act, Cyber Resilience Act, OWASP GenAI, and internal-policy evidence gaps.
+6.  **Decision Packets**: Exporting source payload, validation, risk, action plan, evidence pack, matrix, playbook deviations, reviewer note, transition history, and SHA-256 manifest.
+7.  **Portfolio Risk Register Reporting**: Aggregating matters into board-ready counts, approval queues, overdue matters, blockers, and recommended actions.
+8.  **Contract Playbook Reviews**: Translating SaaS contract deviations into fallback positions, non-starters, approvals, and reviewer notes.
+9.  **Self-Serve CLI Demo**: Running the whole legal-ops workflow from bundled schemas and examples into Markdown or JSON reports.
+10. **Self-Serve Playbooks**: Turning operational controls into templates that business owners can complete and run through automated validation checks.
+11. **Production-Grade Design**: Clean TypeScript implementation, modular architectures, and structured workflows suitable for AI-native SaaS ecosystems.
+12. **Engineering Legibility**: Typed workflows, Vitest tests, package smoke checks, and clear run paths that engineering and legal can inspect together.
 
 See [What This Proves for a General Counsel Candidate](what-this-proves.md) and [Sample Output Logs](sample-output.md) for more details.
 
@@ -74,8 +76,12 @@ ai-saas-legal-ops-starter-kit/
   │   ├── risk-scoring.ts                 # Rules-based deterministic risk engine
   │   ├── action-plan.ts                  # Deterministic legal action plan generator
   │   ├── contract-playbook.ts            # SaaS contract playbook review generator
+  │   ├── decision-packet.ts              # Reviewer packet and SHA-256 manifest generator
   │   ├── evidence-pack.ts                # AI governance evidence pack generator
+  │   ├── regulatory-matrix.ts            # Regulatory obligation matrix generator
   │   ├── risk-register.ts                # Portfolio-level risk register summary
+  │   ├── storage.ts                      # Safe local matter persistence and transitions
+  │   ├── workflows.ts                    # Shared schema allowlist and root resolver
   │   └── index.ts                        # Main library exports
   ├── schemas/                            # JSON Schema Definitions
   │   ├── saas-contract-intake.schema.json
@@ -117,10 +123,15 @@ ai-saas-legal-ops-starter-kit/
   └── tests/                              # Vitest Test Scaffolding
       ├── schema-validation.test.ts       # Automated schema-compliance verification
       ├── risk-scoring.test.ts            # Triage scoring unit tests
+      ├── policy-health.test.ts           # Custom policy health and resolver tests
       ├── action-plan.test.ts             # Legal action plan unit tests
       ├── cli.test.ts                     # End-to-end demo CLI tests
       ├── contract-playbook.test.ts       # SaaS contract playbook tests
+      ├── decision-packet.test.ts         # Reviewer packet and manifest tests
       ├── evidence-pack.test.ts           # AI governance evidence pack tests
+      ├── package-smoke.test.ts           # Package metadata tests
+      ├── regulatory-matrix.test.ts       # Regulatory matrix coverage tests
+      ├── storage-safety.test.ts          # Persistence boundary tests
       └── risk-register.test.ts           # Portfolio register unit tests
 ```
 
@@ -135,6 +146,9 @@ npm install
 npm run validate:examples
 npm run test
 npm run typecheck
+npm run check:package
+npm run audit:root
+npm run audit:dashboard
 npm run demo
 ```
 
@@ -169,6 +183,8 @@ Open `http://localhost:3000`, then use `Seed Dust demo`. The dashboard loads six
 6. regulated product launch gate.
 
 The five-minute reviewer path is simple: seed the demo, open the MSA or product launch matter, inspect risk reasons, evidence gaps, playbook fallback positions and audit history, then switch to the General Counsel role and record an approval or rejection note. No external communication is sent and no real customer data is used.
+
+The dashboard also exposes policy health, regulatory matrix gaps, and local decision packets. Packet copy/download behavior remains local to the browser and CLI. There is no external send, publication, filing, or customer communication action.
 
 ### Real-Time Demo Output Excerpt
 Here is the structured validation, risk triage, and action plan output generated by running the demo CLI:
@@ -305,6 +321,50 @@ Example output shape:
 }
 ```
 
+## Regulatory Obligation Matrix Output Contract
+
+The matrix generator converts the same payload into reviewer-facing obligation rows:
+
+```ts
+import {
+  createRegulatoryObligationMatrix,
+  renderRegulatoryObligationMatrixMarkdown
+} from '@sebastianfoerste/ai-saas-legal-ops-starter-kit';
+
+const matrix = createRegulatoryObligationMatrix('ProductLaunchIntake', payload);
+const markdown = renderRegulatoryObligationMatrixMarkdown(matrix);
+```
+
+The matrix covers AI Act role classification, prohibited-practices screening, Annex III screening, GPAI dependency evidence, Article 50 transparency, DORA register-of-information fields, GDPR DPIA and TIA evidence, Data Act switching support, Cyber Resilience Act software evidence, and OWASP GenAI controls where applicable. Each row includes obligation, framework, trigger, source fields, evidence required, owner, review gate, readiness, and rationale.
+
+## Decision Packet Output Contract
+
+Decision packets are local reviewer exports:
+
+```ts
+import {
+  createDecisionPacket,
+  renderDecisionPacketMarkdown
+} from '@sebastianfoerste/ai-saas-legal-ops-starter-kit';
+
+const packet = createDecisionPacket({
+  schemaType: 'SaaSContractIntake',
+  data: payload,
+  reviewerNote: 'Reviewed for demo export.'
+});
+const markdown = renderDecisionPacketMarkdown(packet);
+```
+
+Each packet includes the source payload, validation result, risk reasons, action plan, evidence pack, regulatory matrix, SaaS contract playbook deviations where applicable, reviewer note, transition history, human-review notice, and a local SHA-256 manifest covering each section plus an overall digest.
+
+CLI access:
+
+```bash
+node dist/src/cli.js policy-health
+node dist/src/cli.js matrix --type ProductLaunchIntake --input examples/product-launch-intake.example.json
+node dist/src/cli.js export-decision --type SaaSContractIntake --input examples/saas-contract-intake.example.json
+```
+
 ## Self-Serve CLI Demo
 
 The demo CLI runs the bundled public-safe examples through the full legal-ops pipeline:
@@ -422,6 +482,20 @@ Example output shape:
 ## Public Safety Note
 
 All inputs, examples, and test data in this repository are **strictly synthetic and public-safe**. They contain no client data, personal data, commercial secrets, or privileged legal communication. See [data-boundary-policy.md](policies/data-boundary-policy.md).
+
+---
+
+## Package and Supply-Chain Gates
+
+The library package is importable from `dist/src/index.js` and exposes an explicit `exports` map. Published package contents are limited through `files` to built library output, schemas, examples, policies, templates, docs, README, and license material. Tests, dashboard source, local storage, and repository planning artifacts stay out of the package tarball.
+
+Run the package smoke and dry-run pack check:
+
+```bash
+npm run check:package
+```
+
+CI also runs `npm audit --omit=dev` for the root package and a dashboard production audit gate. The dashboard currently has a documented moderate advisory through `next@16.2.7` to bundled `postcss@8.4.31` (`GHSA-qx2v-qp2m-jg93`). The check allows only that known path and fails on any unknown production advisory. Do not use `npm audit fix --force`; it suggests an unsafe Next downgrade. Resolve through a safe Next/PostCSS upgrade path when available.
 
 ---
 

@@ -8,17 +8,40 @@ import {
   createContractPlaybookReview,
   type ContractPlaybookReview
 } from './contract-playbook.js';
+import {
+  createDecisionPacket,
+  renderDecisionPacketMarkdown,
+  type DecisionPacket
+} from './decision-packet.js';
 import { createEvidencePack, renderEvidencePackMarkdown, type EvidencePack } from './evidence-pack.js';
 import { createLegalRiskRegister, type LegalRiskRegisterSummary } from './risk-register.js';
-import { calculateRisk, type RiskAssessment } from './risk-scoring.js';
+import {
+  calculateRisk,
+  getPolicyHealth,
+  type PolicyHealth,
+  type RiskAssessment
+} from './risk-scoring.js';
+import {
+  createRegulatoryObligationMatrix,
+  renderRegulatoryObligationMatrixMarkdown,
+  type RegulatoryObligationMatrix
+} from './regulatory-matrix.js';
 import { validateJSON, type ValidationResult } from './validate.js';
 import {
+  assertMatterCreationAllowed,
+  isMatterStatus,
+  listMattersWithDiagnostics,
   saveMatter,
   loadMatter,
-  listMatters,
   transitionMatterStatus,
   type PersistedMatter
 } from './storage.js';
+import {
+  canonicalSchemaType,
+  loadSchemaForType,
+  WORKFLOWS,
+  type WorkflowDefinition
+} from './workflows.js';
 
 export type DemoOutputFormat = 'json' | 'markdown';
 
@@ -39,61 +62,17 @@ export interface DemoMatterReport {
   risk: RiskAssessment;
   actionPlan: LegalActionPlan;
   evidencePack: EvidencePack;
+  regulatoryMatrix: RegulatoryObligationMatrix;
   contractPlaybook?: ContractPlaybookReview;
 }
 
 export interface DemoReport {
   generatedAt: string;
   allExamplesValid: boolean;
+  policyHealth: PolicyHealth;
   matters: DemoMatterReport[];
   riskRegister: LegalRiskRegisterSummary;
 }
-
-interface DemoWorkflow {
-  id: string;
-  name: string;
-  prefix: string;
-  schemaType: string;
-}
-
-const DEMO_WORKFLOWS: DemoWorkflow[] = [
-  {
-    id: 'saas-contract-intake',
-    name: 'SaaS Contract Intake',
-    prefix: 'saas-contract-intake',
-    schemaType: 'SaaSContractIntake'
-  },
-  {
-    id: 'dpa-triage',
-    name: 'DPA Triage',
-    prefix: 'dpa-triage',
-    schemaType: 'DPATriage'
-  },
-  {
-    id: 'ai-vendor-review',
-    name: 'AI Vendor Review',
-    prefix: 'ai-vendor-review',
-    schemaType: 'AIVendorReview'
-  },
-  {
-    id: 'open-source-review',
-    name: 'Open-Source Review',
-    prefix: 'open-source-review',
-    schemaType: 'OpenSourceReview'
-  },
-  {
-    id: 'customer-commitment',
-    name: 'Customer Commitment',
-    prefix: 'customer-commitment',
-    schemaType: 'CustomerCommitment'
-  },
-  {
-    id: 'product-launch-intake',
-    name: 'Product Launch Intake',
-    prefix: 'product-launch-intake',
-    schemaType: 'ProductLaunchIntake'
-  }
-];
 
 export function parseDemoCliArgs(argv: string[], cwd = process.cwd()): DemoCliOptions {
   const options: DemoCliOptions = {
@@ -138,7 +117,7 @@ export function parseDemoCliArgs(argv: string[], cwd = process.cwd()): DemoCliOp
 }
 
 export function buildDemoReport(options: DemoCliOptions): DemoReport {
-  const matters = DEMO_WORKFLOWS.map(workflow => buildMatterReport(workflow, options));
+  const matters = WORKFLOWS.map(workflow => buildMatterReport(workflow, options));
   const riskRegister = createLegalRiskRegister(
     matters.map(matter => ({
       id: matter.id,
@@ -155,6 +134,7 @@ export function buildDemoReport(options: DemoCliOptions): DemoReport {
   return {
     generatedAt: options.generatedAt,
     allExamplesValid: matters.every(matter => matter.validation.valid),
+    policyHealth: getPolicyHealth(),
     matters,
     riskRegister
   };
@@ -191,6 +171,9 @@ export function renderDemoReportMarkdown(report: DemoReport): string {
       return `- ${matter.name}: ${playbook.deviations.length} deviations, ${playbook.nonStarters.length} non-starters`;
     })
     .join('\n');
+  const matrixSummary = report.matters
+    .map(matter => `- ${matter.name}: ${matter.regulatoryMatrix.gaps.length} matrix gaps, ${matter.regulatoryMatrix.humanReviewRequired ? 'human review required' : 'ready for self-serve review'}`)
+    .join('\n');
 
   return [
     '# AI SaaS Legal Ops Demo Report',
@@ -198,6 +181,7 @@ export function renderDemoReportMarkdown(report: DemoReport): string {
     `- Generated At: ${report.generatedAt}`,
     `- Examples Valid: ${validCount}/${report.matters.length}`,
     `- Portfolio Summary: ${report.riskRegister.executiveSummary}`,
+    `- Policy Health: ${report.policyHealth.status} (${report.policyHealth.loadedRules} custom ${plural('rule', report.policyHealth.loadedRules)})`,
     '',
     '## Matter Overview',
     '',
@@ -221,6 +205,14 @@ export function renderDemoReportMarkdown(report: DemoReport): string {
     '',
     contractPlaybookSummary || '- No SaaS contract playbook review generated.',
     '',
+    '## Regulatory Matrix',
+    '',
+    matrixSummary,
+    '',
+    '## Policy Health',
+    '',
+    renderPolicyHealthMarkdown(report.policyHealth),
+    '',
     '## Human Review Notice',
     '',
     'This report is deterministic triage support only. It does not produce legal advice, final approvals, contract decisions, regulatory filings, or public communications.'
@@ -239,7 +231,10 @@ export function runLegalOpsDemo(argv: string[], cwd = process.cwd()): string {
     'save',
     'show',
     'list',
-    'transition'
+    'transition',
+    'policy-health',
+    'matrix',
+    'export-decision'
   ];
   
   if (subcommand && validSubcommands.includes(subcommand)) {
@@ -275,6 +270,9 @@ export function renderDemoHelp(): string {
     '  show       Loads and shows details of a saved matter.',
     '  list       Lists all saved matters from persistence.',
     '  transition Transitions the status of a saved matter.',
+    '  policy-health Shows custom policy rule loading health.',
+    '  matrix     Generates a regulatory obligation matrix for a payload.',
+    '  export-decision Generates a reviewer-grade decision packet.',
     '',
     'Run "legal-ops-demo <subcommand> --help" for help on a specific subcommand.',
     '',
@@ -402,14 +400,14 @@ function renderSubcommandHelp(subcommand: string): string {
         'Saves/ingests a new matter into persistence.',
         '',
         'Usage:',
-        '  legal-ops-demo save --id <id> --name <name> --type <schema-type> --input <input-path> [--status draft|pending_review|approved|rejected] [--actor <actor>] [--notes <notes>] [--format json|markdown]',
+        '  legal-ops-demo save --id <id> --name <name> --type <schema-type> --input <input-path> [--status draft|pending_review] [--actor <actor>] [--notes <notes>] [--format json|markdown]',
         '',
         'Options:',
         '  --id      Unique identifier for the matter.',
         '  --name    Descriptive name of the matter.',
         '  --type    Schema type (e.g. SaaSContractIntake, AIVendorReview).',
         '  --input   Path to the JSON payload representing the matter data.',
-        '  --status  Initial status: draft (default), pending_review, approved, rejected.',
+        '  --status  Initial status: draft (default) or pending_review.',
         '  --actor   Actor name for audit trail logging.',
         '  --notes   Audit notes for the ingestion step.'
       ].join('\n');
@@ -444,7 +442,45 @@ function renderSubcommandHelp(subcommand: string): string {
         '  --id      Unique identifier of the matter.',
         '  --status  Target status: draft, pending_review, approved, rejected.',
         '  --actor   Actor name transitioning the status.',
+        '  --actor-role Actor role. Required as General Counsel for approval or rejection.',
         '  --notes   Justification/audit notes for status transition.'
+      ].join('\n');
+    case 'policy-health':
+      return [
+        'Command: policy-health',
+        'Shows custom policy rule loading health.',
+        '',
+        'Usage:',
+        '  legal-ops-demo policy-health [--format json|markdown]'
+      ].join('\n');
+    case 'matrix':
+      return [
+        'Command: matrix',
+        'Generates a regulatory obligation matrix for a target JSON payload.',
+        '',
+        'Usage:',
+        '  legal-ops-demo matrix --type <schema-type> --input <input-path> [--format json|markdown]',
+        '',
+        'Options:',
+        '  --type    The type name of the schema.',
+        '  --input   Path to the JSON payload.',
+        '  --format  Output format: json or markdown (default).'
+      ].join('\n');
+    case 'export-decision':
+      return [
+        'Command: export-decision',
+        'Generates a reviewer-grade decision packet for a payload or saved matter.',
+        '',
+        'Usage:',
+        '  legal-ops-demo export-decision --id <matter-id> [--reviewer-note <note>] [--format json|markdown]',
+        '  legal-ops-demo export-decision --type <schema-type> --input <input-path> [--name <name>] [--reviewer-note <note>] [--format json|markdown]',
+        '',
+        'Options:',
+        '  --id             Saved matter id.',
+        '  --type           Schema type when exporting from a raw payload.',
+        '  --input          Path to the JSON payload when exporting from a raw payload.',
+        '  --name           Optional matter name for raw payload exports.',
+        '  --reviewer-note  Optional reviewer note included in the packet.'
       ].join('\n');
     default:
       return renderDemoHelp();
@@ -461,6 +497,13 @@ export function runSubcommand(argv: string[], cwd = process.cwd()): string {
   }
 
   switch (subcommand) {
+    case 'policy-health': {
+      const health = getPolicyHealth(cwd);
+      if (format === 'json') {
+        return JSON.stringify(health, null, 2);
+      }
+      return renderPolicyHealthMarkdown(health);
+    }
     case 'validate': {
       const schemaPath = subArgs['schema'];
       const inputPath = subArgs['input'];
@@ -484,13 +527,13 @@ export function runSubcommand(argv: string[], cwd = process.cwd()): string {
       }
     }
     case 'score': {
-      const type = subArgs['type'];
+      const type = subArgs['type'] ? canonicalSchemaType(subArgs['type']) : undefined;
       const inputPath = subArgs['input'];
       if (!type || !inputPath) {
         throw new Error('Usage: legal-ops-demo score --type <type> --input <path>');
       }
       const resolvedInput = path.resolve(cwd, inputPath);
-      const data = JSON.parse(fs.readFileSync(resolvedInput, 'utf8'));
+      const data = readPayload(resolvedInput);
       const risk = calculateRisk(type, data);
       
       if (format === 'json') {
@@ -505,13 +548,13 @@ export function runSubcommand(argv: string[], cwd = process.cwd()): string {
       ].join('\n\n');
     }
     case 'plan': {
-      const type = subArgs['type'];
+      const type = subArgs['type'] ? canonicalSchemaType(subArgs['type']) : undefined;
       const inputPath = subArgs['input'];
       if (!type || !inputPath) {
         throw new Error('Usage: legal-ops-demo plan --type <type> --input <path>');
       }
       const resolvedInput = path.resolve(cwd, inputPath);
-      const data = JSON.parse(fs.readFileSync(resolvedInput, 'utf8'));
+      const data = readPayload(resolvedInput);
       const plan = createLegalActionPlan(type, data);
       
       if (format === 'json') {
@@ -538,13 +581,13 @@ export function runSubcommand(argv: string[], cwd = process.cwd()): string {
       ].join('\n\n');
     }
     case 'evidence': {
-      const type = subArgs['type'];
+      const type = subArgs['type'] ? canonicalSchemaType(subArgs['type']) : undefined;
       const inputPath = subArgs['input'];
       if (!type || !inputPath) {
         throw new Error('Usage: legal-ops-demo evidence --type <type> --input <path>');
       }
       const resolvedInput = path.resolve(cwd, inputPath);
-      const data = JSON.parse(fs.readFileSync(resolvedInput, 'utf8'));
+      const data = readPayload(resolvedInput);
       const pack = createEvidencePack(type, data);
       
       if (format === 'json') {
@@ -587,10 +630,11 @@ export function runSubcommand(argv: string[], cwd = process.cwd()): string {
         if (!inferredType) {
           throw new Error(`Could not infer schema type for file: ${inputPath}. Please set a "schemaType" field in the JSON.`);
         }
+        const schemaType = canonicalSchemaType(inferredType);
         return {
           id: `matter-${idx + 1}`,
           name: path.basename(inputPath, '.json'),
-          schemaType: inferredType,
+          schemaType,
           data
         };
       });
@@ -676,30 +720,43 @@ export function runSubcommand(argv: string[], cwd = process.cwd()): string {
         throw new Error('Usage: legal-ops-demo save --id <id> --name <name> --type <type> --input <path> [--status <status>] [--actor <actor>] [--notes <notes>]');
       }
       const resolvedInput = path.resolve(cwd, inputPath);
-      const data = JSON.parse(fs.readFileSync(resolvedInput, 'utf8'));
-      const status = (subArgs['status'] as any) || 'draft';
+      const data = readPayload(resolvedInput);
+      const schemaType = canonicalSchemaType(type);
+      const status = subArgs['status'] || 'draft';
       const actor = subArgs['actor'] || 'CLI User';
       const notes = subArgs['notes'] || 'Saved via CLI';
+      if (!isMatterStatus(status)) {
+        throw new Error(`Unsupported matter status: ${status}`);
+      }
+      assertMatterCreationAllowed(status);
+      const validation = validateJSON(loadSchemaForType(schemaType, cwd), data);
+      if (!validation.valid && status !== 'draft') {
+        throw new Error('Invalid payloads can only be saved as explicit draft matters');
+      }
       const matter: PersistedMatter = {
         id,
         name,
-        schemaType: type,
+        schemaType,
         data,
         status,
+        validationErrors: validation.valid ? undefined : validation.errors ?? ['Payload failed validation'],
         auditLog: [
           {
             timestamp: new Date().toISOString(),
             action: `Ingested matter with initial status ${status}`,
             actor,
-            notes
+            notes: validation.valid ? notes : `${notes} Validation errors captured on draft.`
           }
         ]
       };
       saveMatter(matter);
       if (format === 'json') {
-        return JSON.stringify({ success: true, matter }, null, 2);
+        return JSON.stringify({ success: true, matter, validation }, null, 2);
       }
-      return `✅ Matter **${name}** (ID: **${id}**) saved successfully under persistence.\n`;
+      return [
+        `✅ Matter **${name}** (ID: **${id}**) saved successfully under persistence.`,
+        validation.valid ? 'Payload validation passed.' : `Draft saved with ${validation.errors?.length ?? 1} validation ${plural('error', validation.errors?.length ?? 1)}.`
+      ].join('\n');
     }
     case 'show': {
       const id = subArgs['id'];
@@ -722,37 +779,66 @@ export function runSubcommand(argv: string[], cwd = process.cwd()): string {
       ].join('\n\n');
     }
     case 'list': {
-      const list = listMatters();
+      const { matters: list, diagnostics } = listMattersWithDiagnostics();
       if (format === 'json') {
-        return JSON.stringify(list, null, 2);
+        return JSON.stringify({ matters: list, diagnostics }, null, 2);
       }
       if (list.length === 0) {
-        return `No matters found in persistence.\n`;
+        return diagnostics.length > 0
+          ? `No valid matters found in persistence.\n\n${diagnostics.map(item => `- ${item.reason}`).join('\n')}\n`
+          : `No matters found in persistence.\n`;
       }
       const rows = list
         .map(m => [m.id, m.name, m.schemaType, m.status, m.auditLog.length].join(' | '))
         .map(row => `| ${row} |`)
         .join('\n');
+      const diagnosticLines = diagnostics.length > 0
+        ? ['## Storage Diagnostics', diagnostics.map(item => `- ${item.filePath ?? item.id ?? 'storage'}: ${item.reason}`).join('\n')]
+        : [];
       return [
         `# Persisted Matters`,
         `| ID | Name | Schema Type | Status | Audit Logs |`,
         `| --- | --- | --- | --- | --- |`,
-        rows
+        rows,
+        ...diagnosticLines
       ].join('\n\n');
     }
     case 'transition': {
       const id = subArgs['id'];
-      const status = subArgs['status'] as any;
+      const status = subArgs['status'];
       const actor = subArgs['actor'];
       const notes = subArgs['notes'];
+      const actorRole = subArgs['actor-role'];
       if (!id || !status || !actor || !notes) {
         throw new Error('Usage: legal-ops-demo transition --id <id> --status <status> --actor <actor> --notes <notes>');
       }
-      const updated = transitionMatterStatus(id, status, actor, notes);
+      if (!isMatterStatus(status)) {
+        throw new Error(`Unsupported matter status: ${status}`);
+      }
+      const updated = transitionMatterStatus(id, status, actor, notes, actorRole);
       if (format === 'json') {
         return JSON.stringify(updated, null, 2);
       }
       return `✅ Status for matter **${id}** updated to **${status}**.\n`;
+    }
+    case 'matrix': {
+      const type = subArgs['type'] ? canonicalSchemaType(subArgs['type']) : undefined;
+      const inputPath = subArgs['input'];
+      if (!type || !inputPath) {
+        throw new Error('Usage: legal-ops-demo matrix --type <type> --input <path>');
+      }
+      const matrix = createRegulatoryObligationMatrix(type, readPayload(path.resolve(cwd, inputPath)));
+      if (format === 'json') {
+        return JSON.stringify(matrix, null, 2);
+      }
+      return renderRegulatoryObligationMatrixMarkdown(matrix);
+    }
+    case 'export-decision': {
+      const packet = buildDecisionPacketFromArgs(subArgs, cwd);
+      if (format === 'json') {
+        return JSON.stringify(packet, null, 2);
+      }
+      return renderDecisionPacketMarkdown(packet);
     }
   }
 
@@ -765,7 +851,7 @@ class DemoCliHelpRequested extends Error {
   }
 }
 
-function buildMatterReport(workflow: DemoWorkflow, options: DemoCliOptions): DemoMatterReport {
+function buildMatterReport(workflow: WorkflowDefinition, options: DemoCliOptions): DemoMatterReport {
   const schemaPath = path.join(options.schemasDir, `${workflow.prefix}.schema.json`);
   const examplePath = path.join(options.examplesDir, `${workflow.prefix}.example.json`);
   const schema = readJSON(schemaPath);
@@ -774,6 +860,11 @@ function buildMatterReport(workflow: DemoWorkflow, options: DemoCliOptions): Dem
   const risk = calculateRisk(workflow.schemaType, data);
   const actionPlan = createLegalActionPlan(workflow.schemaType, data, { risk });
   const evidencePack = createEvidencePack(workflow.schemaType, data, {
+    actionPlan,
+    generatedAt: options.generatedAt,
+    risk
+  });
+  const regulatoryMatrix = createRegulatoryObligationMatrix(workflow.schemaType, data, {
     actionPlan,
     generatedAt: options.generatedAt,
     risk
@@ -796,12 +887,71 @@ function buildMatterReport(workflow: DemoWorkflow, options: DemoCliOptions): Dem
     risk,
     actionPlan,
     evidencePack,
+    regulatoryMatrix,
     contractPlaybook
   };
 }
 
 function readJSON(filePath: string): unknown {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function readPayload(filePath: string): Record<string, unknown> {
+  const parsed = readJSON(filePath);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`Payload must be a JSON object: ${filePath}`);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function buildDecisionPacketFromArgs(subArgs: Record<string, string>, cwd: string): DecisionPacket {
+  const reviewerNote = subArgs['reviewer-note'];
+  const generatedAt = subArgs['generated-at'];
+  const id = subArgs['id'];
+
+  if (id) {
+    const matter = loadMatter(id);
+    if (!matter) {
+      throw new Error(`Matter with ID ${id} not found in persistence`);
+    }
+    return createDecisionPacket({
+      matter,
+      reviewerNote,
+      generatedAt
+    }, { startDir: cwd });
+  }
+
+  const type = subArgs['type'] ? canonicalSchemaType(subArgs['type']) : undefined;
+  const inputPath = subArgs['input'];
+  if (!type || !inputPath) {
+    throw new Error('Usage: legal-ops-demo export-decision --id <matter-id> or --type <type> --input <path>');
+  }
+
+  return createDecisionPacket({
+    schemaType: type,
+    name: subArgs['name'],
+    data: readPayload(path.resolve(cwd, inputPath)),
+    reviewerNote,
+    generatedAt
+  }, { startDir: cwd });
+}
+
+function renderPolicyHealthMarkdown(health: PolicyHealth): string {
+  const errors = health.errors.length > 0
+    ? health.errors.map(error => `- ${error}`).join('\n')
+    : '- None.';
+
+  return [
+    '# Policy Health',
+    '',
+    `- Status: ${health.status}`,
+    `- Loaded Rules: ${health.loadedRules}`,
+    `- Policy Path: ${health.path ?? 'unresolved'}`,
+    '',
+    '## Errors',
+    '',
+    errors
+  ].join('\n');
 }
 
 function parseFormat(value: string | undefined): DemoOutputFormat {
