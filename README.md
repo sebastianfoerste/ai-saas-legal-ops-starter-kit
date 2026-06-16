@@ -24,10 +24,14 @@ This repository demonstrates:
 8.  **Contract Playbook Reviews**: Translating SaaS contract deviations into fallback positions, non-starters, approvals, and reviewer notes.
 9.  **Self-Serve CLI Demo**: Running the whole legal-ops workflow from bundled schemas and examples into Markdown or JSON reports.
 10. **Self-Serve Playbooks**: Turning operational controls into templates that business owners can complete and run through automated validation checks.
-11. **Production-Grade Design**: Clean TypeScript implementation, modular architectures, and structured workflows suitable for AI-native SaaS ecosystems.
+11. **Production-Minded Design**: Clean TypeScript implementation, modular architecture, and structured workflows that are easy for legal and engineering reviewers to inspect.
 12. **Engineering Legibility**: Typed workflows, Vitest tests, package smoke checks, and clear run paths that engineering and legal can inspect together.
 
-See [What This Proves for a General Counsel Candidate](what-this-proves.md) and [Sample Output Logs](sample-output.md) for more details.
+See [What This Proves for a General Counsel Candidate](what-this-proves.md), [Sample Output Logs](sample-output.md), [Schema Reference](docs/schema-reference.md), and the [Approval Gate Snapshot](examples/approval-gate-output.json) for more detail.
+
+## Portfolio Value
+
+AI SaaS legal work repeats in structured patterns: sales terms, DPAs, model-provider terms, open-source licences, launch claims, customer commitments, and board reporting. This starter kit turns those patterns into typed intake payloads, deterministic checks, visible evidence gaps, approval records, and local audit trails. It is useful as a public-safe proof of how legal operations can become inspectable product infrastructure while final decisions remain human approved.
 
 ---
 
@@ -137,20 +141,21 @@ ai-saas-legal-ops-starter-kit/
 
 ---
 
-## Demo Path
+## 90-Second Evaluator Path
 
-Verify validation, scoring, action planning, evidence packs, and risk register compliance:
+Verify validation, scoring, action planning, approval gates, evidence packs, and risk register compliance:
 
 ```bash
 npm install
-npm run validate:examples
 npm run test
 npm run typecheck
-npm run check:package
-npm run audit:root
-npm run audit:dashboard
-npm run demo
+npm run demo:json
+node dist/src/cli.js export-decision --type ProductLaunchIntake --input examples/product-launch-intake.example.json --approval-records examples/product-launch-approval-records.example.json --format json
 ```
+
+In the final command, inspect `approvalGate.exportAllowed`. The bundled synthetic approval records intentionally leave legal approvals open, so export remains blocked until the required human approvals are present.
+
+For the full walkthrough, use [demo-script.md](demo-script.md).
 
 ## Dust GC Demo Path
 
@@ -337,7 +342,7 @@ const markdown = renderRegulatoryObligationMatrixMarkdown(matrix);
 
 The matrix covers AI Act role classification, prohibited-practices screening, Annex III screening, GPAI dependency evidence, Article 50 transparency, DORA register-of-information fields, GDPR DPIA and TIA evidence, Data Act switching support, Cyber Resilience Act software evidence, and OWASP GenAI controls where applicable. Each row includes obligation, framework, trigger, source fields, evidence required, owner, review gate, readiness, and rationale.
 
-## Decision Packet Output Contract
+## Decision Packet and Approval Gate Output Contract
 
 Decision packets are local reviewer exports:
 
@@ -350,19 +355,22 @@ import {
 const packet = createDecisionPacket({
   schemaType: 'SaaSContractIntake',
   data: payload,
+  approvalRecords,
   reviewerNote: 'Reviewed for demo export.'
 });
 const markdown = renderDecisionPacketMarkdown(packet);
 ```
 
-Each packet includes the source payload, validation result, risk reasons, action plan, evidence pack, regulatory matrix, SaaS contract playbook deviations where applicable, reviewer note, transition history, human-review notice, and a local SHA-256 manifest covering each section plus an overall digest.
+Each packet includes the source payload, validation result, risk reasons, action plan, approval gate, evidence pack, regulatory matrix, SaaS contract playbook deviations where applicable, reviewer note, transition history, human-review notice, and a local SHA-256 manifest covering each section plus an overall digest.
+
+The approval gate blocks export when the deterministic action plan still has blockers, a required approval is missing, or any required approval has been rejected. This is an internal workflow gate only. It is draft support for a qualified reviewer and is never legal advice.
 
 CLI access:
 
 ```bash
 node dist/src/cli.js policy-health
 node dist/src/cli.js matrix --type ProductLaunchIntake --input examples/product-launch-intake.example.json
-node dist/src/cli.js export-decision --type SaaSContractIntake --input examples/saas-contract-intake.example.json
+node dist/src/cli.js export-decision --type ProductLaunchIntake --input examples/product-launch-intake.example.json --approval-records examples/product-launch-approval-records.example.json
 ```
 
 ## Self-Serve CLI Demo
@@ -482,6 +490,8 @@ Example output shape:
 ## Public Safety Note
 
 All inputs, examples, and test data in this repository are **strictly synthetic and public-safe**. They contain no client data, personal data, commercial secrets, or privileged legal communication. See [data-boundary-policy.md](policies/data-boundary-policy.md).
+
+The sample outputs under `examples/` are static synthetic snapshots for evaluator review. They are designed to show the board risk register, blockers, approvals, evidence requests, approval-gate status, and audit-trail structure without connecting to live systems.
 
 ---
 

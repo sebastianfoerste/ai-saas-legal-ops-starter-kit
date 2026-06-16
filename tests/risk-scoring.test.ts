@@ -129,6 +129,24 @@ describe('Deterministic Risk-Scoring Engine Tests', () => {
     expect(result.reasons).toContain('Involves unclear or high-risk subprocessors/hosting regions');
   });
 
+  test('should escalate high-risk DPA when subprocessors are missing', () => {
+    const result = calculateRisk('DPATriage', {
+      productOrService: 'AI workspace',
+      role: 'processor',
+      dataSubjects: ['customer employees'],
+      personalDataCategories: ['workspace documents'],
+      specialCategoryData: [],
+      subprocessors: [],
+      transferLocations: ['EU'],
+      retentionPeriod: '30 days',
+      deletionProcess: 'Standard deletion',
+      securityAnnexStatus: 'Standard TOMs'
+    });
+
+    expect(result.level).toBe('high');
+    expect(result.reasons).toContain('No subprocessors declared');
+  });
+
   test('should escalate GPL/AGPL dependency when copyleft concern is true', () => {
     const data = {
       package: "agpl-helper",

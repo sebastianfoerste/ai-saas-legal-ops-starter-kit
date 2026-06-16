@@ -155,6 +155,7 @@ describe('Legal Ops Demo CLI', () => {
     expect(parsed.integrityManifest.overallDigest).toMatch(/^[a-f0-9]{64}$/);
     expect(parsed.regulatoryMatrix.rows.length).toBeGreaterThan(0);
     expect(parsed.contractPlaybook.deviations.length).toBeGreaterThan(0);
+    expect(parsed.approvalGate.exportAllowed).toBe(false);
   });
 
   test('runs register subcommand', () => {

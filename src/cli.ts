@@ -15,6 +15,7 @@ import {
 } from './decision-packet.js';
 import { createEvidencePack, renderEvidencePackMarkdown, type EvidencePack } from './evidence-pack.js';
 import { createLegalRiskRegister, type LegalRiskRegisterSummary } from './risk-register.js';
+import type { ApprovalRecord } from './approval-gate.js';
 import {
   calculateRisk,
   getPolicyHealth,
@@ -472,13 +473,14 @@ function renderSubcommandHelp(subcommand: string): string {
         'Generates a reviewer-grade decision packet for a payload or saved matter.',
         '',
         'Usage:',
-        '  legal-ops-demo export-decision --id <matter-id> [--reviewer-note <note>] [--format json|markdown]',
-        '  legal-ops-demo export-decision --type <schema-type> --input <input-path> [--name <name>] [--reviewer-note <note>] [--format json|markdown]',
+        '  legal-ops-demo export-decision --id <matter-id> [--approval-records <path>] [--reviewer-note <note>] [--format json|markdown]',
+        '  legal-ops-demo export-decision --type <schema-type> --input <input-path> [--approval-records <path>] [--name <name>] [--reviewer-note <note>] [--format json|markdown]',
         '',
         'Options:',
         '  --id             Saved matter id.',
         '  --type           Schema type when exporting from a raw payload.',
         '  --input          Path to the JSON payload when exporting from a raw payload.',
+        '  --approval-records Optional JSON file containing approval records.',
         '  --name           Optional matter name for raw payload exports.',
         '  --reviewer-note  Optional reviewer note included in the packet.'
       ].join('\n');
@@ -907,6 +909,7 @@ function readPayload(filePath: string): Record<string, unknown> {
 function buildDecisionPacketFromArgs(subArgs: Record<string, string>, cwd: string): DecisionPacket {
   const reviewerNote = subArgs['reviewer-note'];
   const generatedAt = subArgs['generated-at'];
+  const approvalRecords = readApprovalRecords(subArgs['approval-records'], cwd);
   const id = subArgs['id'];
 
   if (id) {
@@ -916,6 +919,7 @@ function buildDecisionPacketFromArgs(subArgs: Record<string, string>, cwd: strin
     }
     return createDecisionPacket({
       matter,
+      approvalRecords,
       reviewerNote,
       generatedAt
     }, { startDir: cwd });
@@ -931,9 +935,21 @@ function buildDecisionPacketFromArgs(subArgs: Record<string, string>, cwd: strin
     schemaType: type,
     name: subArgs['name'],
     data: readPayload(path.resolve(cwd, inputPath)),
+    approvalRecords,
     reviewerNote,
     generatedAt
   }, { startDir: cwd });
+}
+
+function readApprovalRecords(inputPath: string | undefined, cwd: string): ApprovalRecord[] {
+  if (!inputPath) {
+    return [];
+  }
+  const value = readJSON(path.resolve(cwd, inputPath));
+  if (!Array.isArray(value)) {
+    throw new Error('Approval records file must contain a JSON array');
+  }
+  return value as ApprovalRecord[];
 }
 
 function renderPolicyHealthMarkdown(health: PolicyHealth): string {

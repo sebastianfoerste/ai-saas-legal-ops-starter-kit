@@ -1,63 +1,53 @@
-# 5-Minute Recruiter & Founder Demo Script
+# Evaluator Demo Script
 
-This script shows how to inspect and run the AI SaaS Legal Ops Starter Kit in 5 minutes to verify its design and functionality.
+Use this path to review the repository quickly and verify that the same deterministic rules drive the CLI, test suite, and optional dashboard.
 
-## Step 1: Clone and Install (1 Minute)
-Get the repository and install the development dependencies:
+## Install
+
 ```bash
-git clone https://github.com/sebastianfoerste/ai-saas-legal-ops-starter-kit.git
-cd ai-saas-legal-ops-starter-kit
 npm install
 ```
 
-## Step 2: Explore Schemas & Examples (1 Minute)
-Open the schema definitions and see how business terms are translated into validation rules:
-*   `schemas/saas-contract-intake.schema.json` defines required fields for sales intakes.
-*   `examples/saas-contract-intake.example.json` represents a synthetic negotiation matter for *Atlas Metrics Bank* with regulated-customer routing, custom liability caps, AI features, and a pending DORA exit strategy.
+## Validate the intake layer
 
-## Step 3: Run Example Validation (1 Minute)
-Run the validation script to verify all synthetic examples align perfectly with their JSON schemas:
 ```bash
 npm run validate:examples
 ```
-This runs the test file `tests/schema-validation.test.ts` to validate the files in `examples/` against the JSON schemas in `schemas/`.
 
-## Step 4: Run Unit Tests (1 Minute)
-Verify the deterministic legal operations logic using Vitest:
+Review `schemas/` and `examples/` together. The schemas define the intake contracts. The examples are synthetic matters that exercise SaaS contracting, DPA review, AI vendor review, open-source review, customer commitments, and product launch governance.
+
+## Run the legal engineering gate
+
 ```bash
 npm run test
+npm run typecheck
 ```
-This executes:
-1.  **Schema Validation Tests**: Confirms AJV properly parses formats.
-2.  **Risk Scoring Engine Tests**: Asserts that high-risk inputs, for example model training on customer data, regulated customer status, sensitive data, and copyleft license type, correctly escalate to the General Counsel.
-3.  **Legal Action Plan Tests**: Confirms each risk score is converted into approvals, blockers, follow-ups, and evidence requests.
-4.  **Contract Playbook Tests**: Confirms SaaS contract deviations are converted into fallback positions, approvals, non-starters, and reviewer notes.
-5.  **AI Governance Evidence Pack Tests**: Confirms product launch, AI vendor, and DPA matters produce deterministic evidence packs and Markdown review output.
-6.  **Risk Register Tests**: Confirms multiple matters can be aggregated into portfolio-level counts, approval queues, overdue matters, and recommended actions.
 
-## Step 5: Run the End-to-End Demo CLI (1 Minute)
-Generate a full Markdown demo report from bundled public-safe examples:
+The test suite proves that deterministic rules escalate high-risk DPAs, customer-data model training, non-standard liability positions, missing subprocessors, and launch exports without required approvals.
+
+## Generate the board risk register
+
 ```bash
 npm run demo
-```
-
-For structured output:
-```bash
 npm run demo:json
 ```
 
-The CLI validates examples, calculates risk, generates action plans, builds contract playbook reviews and AI governance evidence packs, aggregates the legal risk register, and prints a review-ready report.
+The report shows matter risk, review gates, approval queues, blockers, evidence readiness, regulatory matrix gaps, and the human review notice.
 
-## Step 6: Read Policies and Operating Model (1 Minute)
-Open the markdown docs to understand the business value of this system:
-*   `policies/human-review-policy.md` outlines the Human-in-the-Loop requirement and disclaimer.
-*   `docs/operating-model.md` details how this transforms a corporate legal team from a bottleneck queue into a product platform.
+## Generate a blocked decision packet
 
-## Optional Demo Moment: Evidence Pack Renderer
-Open `tests/evidence-pack.test.ts` and inspect the `renderEvidencePackMarkdown` assertion. It demonstrates how a risky AI product launch can be converted from a structured intake into a deterministic review pack with missing evidence, approvals, and a human review notice.
+```bash
+npm run build
+node dist/src/cli.js export-decision --type ProductLaunchIntake --input examples/product-launch-intake.example.json --approval-records examples/product-launch-approval-records.example.json --format json
+```
 
-## Optional Demo Moment: Contract Playbook Renderer
-Open `tests/contract-playbook.test.ts` and inspect the `renderContractPlaybookMarkdown` assertion. It demonstrates how a negotiated SaaS contract intake can be converted into fallback positions, non-starters, approval requirements, and reviewer notes.
+The approval records intentionally leave required legal approvals open. The resulting packet should show `approvalGate.status` as `blocked` and `approvalGate.exportAllowed` as `false`.
 
-## Optional Demo Moment: Reviewer Dashboard
-Run `npm run dashboard:dev`, open `http://localhost:3000`, and seed the Dust GC demo matters. The dashboard shows role-specific legal intake, evidence readiness, audit history, and General Counsel approval gates over the same deterministic rules used by the package.
+## Optional dashboard
+
+```bash
+npm --prefix dashboard install
+npm run dashboard:dev
+```
+
+Open `http://localhost:3000` and seed the synthetic demo. The dashboard is a review surface over the same TypeScript rules. The package code remains the source of truth for classification, routing, approval states, and risk-register output.

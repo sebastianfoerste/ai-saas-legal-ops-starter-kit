@@ -62,6 +62,13 @@ export {
   IntegrityManifestSection
 } from './decision-packet.js';
 export {
+  evaluateExportApprovalGate,
+  ApprovalRecord,
+  ApprovalRecordState,
+  ExportApprovalGate,
+  ExportGateStatus
+} from './approval-gate.js';
+export {
   createRegulatoryObligationMatrix,
   renderRegulatoryObligationMatrixMarkdown,
   RegulatoryFramework,

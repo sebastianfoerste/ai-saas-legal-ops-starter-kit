@@ -1,0 +1,23 @@
+[
+  {
+    "approval": "Product Owner Approval",
+    "state": "approved",
+    "reviewer": "Synthetic Product Owner",
+    "note": "Launch scope reviewed for the synthetic demo.",
+    "timestamp": "2026-06-15T09:00:00.000Z"
+  },
+  {
+    "approval": "Security Review",
+    "state": "approved",
+    "reviewer": "Synthetic Security Reviewer",
+    "note": "Security review completed for sample controls.",
+    "timestamp": "2026-06-15T09:30:00.000Z"
+  },
+  {
+    "approval": "DPO Sign-off",
+    "state": "approved",
+    "reviewer": "Synthetic DPO",
+    "note": "Privacy review complete subject to legal launch approval.",
+    "timestamp": "2026-06-15T10:00:00.000Z"
+  }
+]

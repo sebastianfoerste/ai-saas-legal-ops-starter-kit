@@ -17,6 +17,11 @@ import { calculateRisk, type RiskAssessment } from './risk-scoring.js';
 import { type PersistedMatter } from './storage.js';
 import { validateJSON, type ValidationResult } from './validate.js';
 import { loadSchemaForType } from './workflows.js';
+import {
+  evaluateExportApprovalGate,
+  type ApprovalRecord,
+  type ExportApprovalGate
+} from './approval-gate.js';
 
 export interface DecisionPacketInput {
   schemaType?: string;
@@ -29,6 +34,7 @@ export interface DecisionPacketInput {
   evidencePack?: EvidencePack;
   regulatoryMatrix?: RegulatoryObligationMatrix;
   contractPlaybook?: ContractPlaybookReview;
+  approvalRecords?: ApprovalRecord[];
   reviewerNote?: string;
   generatedAt?: string;
 }
@@ -56,6 +62,7 @@ export interface DecisionPacket {
   evidencePack: EvidencePack;
   regulatoryMatrix: RegulatoryObligationMatrix;
   contractPlaybook?: ContractPlaybookReview;
+  approvalGate: ExportApprovalGate;
   reviewerNote?: string;
   transitionHistory: PersistedMatter['auditLog'];
   humanReviewNotice: string;
@@ -85,6 +92,10 @@ export function createDecisionPacket(input: DecisionPacketInput, options: { star
   const regulatoryMatrix = input.regulatoryMatrix ?? createRegulatoryObligationMatrix(schemaType, data, { generatedAt, risk, actionPlan });
   const contractPlaybook = input.contractPlaybook
     ?? (schemaType === 'SaaSContractIntake' ? createContractPlaybookReview(data, { generatedAt, risk, actionPlan }) : undefined);
+  const approvalGate = evaluateExportApprovalGate(
+    actionPlan,
+    input.approvalRecords ?? approvalRecordsFromPayload(data)
+  );
   const basePacket: DecisionPacketWithoutManifest = {
     schemaType,
     matterName: input.name ?? input.matter?.name ?? regulatoryMatrix.matterName,
@@ -96,6 +107,7 @@ export function createDecisionPacket(input: DecisionPacketInput, options: { star
     evidencePack,
     regulatoryMatrix,
     contractPlaybook,
+    approvalGate,
     reviewerNote: input.reviewerNote,
     transitionHistory: input.matter?.auditLog ?? [],
     humanReviewNotice: HUMAN_REVIEW_NOTICE
@@ -118,6 +130,7 @@ export function createIntegrityManifest(packet: DecisionPacket | DecisionPacketW
     sectionDigest('evidencePack', packetWithoutManifest.evidencePack),
     sectionDigest('regulatoryMatrix', packetWithoutManifest.regulatoryMatrix),
     sectionDigest('contractPlaybook', packetWithoutManifest.contractPlaybook ?? null),
+    sectionDigest('approvalGate', packetWithoutManifest.approvalGate),
     sectionDigest('reviewerNote', packetWithoutManifest.reviewerNote ?? ''),
     sectionDigest('transitionHistory', packetWithoutManifest.transitionHistory),
     sectionDigest('humanReviewNotice', packetWithoutManifest.humanReviewNotice)
@@ -142,6 +155,19 @@ export function renderDecisionPacketMarkdown(packet: DecisionPacket): string {
   const gaps = packet.regulatoryMatrix.gaps.length > 0
     ? packet.regulatoryMatrix.gaps.map(row => `- [${row.readiness}] ${row.id}: ${row.evidenceRequired.join('; ')}`).join('\n')
     : '- None.';
+  const approvalRows = packet.approvalGate.requiredApprovals.length > 0
+    ? packet.approvalGate.requiredApprovals
+      .map(approval => {
+        if (packet.approvalGate.approvedApprovals.includes(approval)) {
+          return `- approved: ${approval}`;
+        }
+        if (packet.approvalGate.rejectedApprovals.includes(approval)) {
+          return `- rejected: ${approval}`;
+        }
+        return `- missing: ${approval}`;
+      })
+      .join('\n')
+    : '- No approval records required by the deterministic action plan.';
   const playbook = packet.contractPlaybook
     ? [
       `- Deviations: ${packet.contractPlaybook.deviations.length}`,
@@ -160,6 +186,7 @@ export function renderDecisionPacketMarkdown(packet: DecisionPacket): string {
     `- Generated At: ${packet.generatedAt}`,
     `- Risk Level: ${packet.risk.level}`,
     `- Review Gate: ${packet.actionPlan.reviewGate}`,
+    `- Export Status: ${packet.approvalGate.status}`,
     '',
     '## Source Payload',
     '',
@@ -189,6 +216,15 @@ export function renderDecisionPacketMarkdown(packet: DecisionPacket): string {
     '## Regulatory Matrix Gaps',
     '',
     gaps,
+    '',
+    '## Approval Gate',
+    '',
+    `- Export Allowed: ${packet.approvalGate.exportAllowed}`,
+    approvalRows,
+    '',
+    '### Approval Blockers',
+    '',
+    packet.approvalGate.blockerReasons.map(reason => `- ${reason}`).join('\n') || '- None.',
     '',
     '## Contract Playbook Deviations',
     '',
@@ -238,6 +274,26 @@ function sha256(value: string): string {
 
 function stableStringify(value: unknown): string {
   return JSON.stringify(sortValue(value));
+}
+
+function approvalRecordsFromPayload(data: LegalMatterData): ApprovalRecord[] {
+  const value = data.approvalRecords;
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter(isApprovalRecord);
+}
+
+function isApprovalRecord(value: unknown): value is ApprovalRecord {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  return typeof record.approval === 'string'
+    && (record.state === 'approved' || record.state === 'pending' || record.state === 'rejected')
+    && typeof record.reviewer === 'string'
+    && typeof record.note === 'string'
+    && typeof record.timestamp === 'string';
 }
 
 function sortValue(value: unknown): unknown {
