@@ -74,6 +74,28 @@ describe('Contract Playbook Review', () => {
     expect(review.reviewerNotes).toContain('Do not send fallback wording externally until GC has reviewed the non-starter item.');
   });
 
+  test('requires approval for a nonstandard liability cap', () => {
+    const review = createContractPlaybookReview({
+      customer: 'Synthetic SaaS Buyer',
+      contractType: 'MSA',
+      dealStage: 'LegalReview',
+      regulatedCustomer: false,
+      dataCategories: ['business emails'],
+      aiFeaturesInvolved: [],
+      nonStandardTerms: ['Customer requests 10x liability cap for data breach claims']
+    });
+
+    expect(review.deviations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'liability.super_cap',
+          severity: 'requires_approval',
+          approvalRequired: expect.arrayContaining(['Senior Legal Review', 'Finance Approval'])
+        })
+      ])
+    );
+  });
+
   test('creates general review items for unmapped deviations', () => {
     const review = createContractPlaybookReview({
       customer: 'PlainCo',

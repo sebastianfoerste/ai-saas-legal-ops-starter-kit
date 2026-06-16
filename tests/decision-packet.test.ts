@@ -30,6 +30,8 @@ describe('Decision packets and integrity manifests', () => {
     expect(packet.evidencePack.items.length).toBeGreaterThan(0);
     expect(packet.regulatoryMatrix.rows.length).toBeGreaterThan(0);
     expect(packet.contractPlaybook?.deviations.length).toBeGreaterThan(0);
+    expect(packet.approvalGate.exportAllowed).toBe(false);
+    expect(packet.approvalGate.missingApprovals).toContain('GC Approval');
     expect(packet.integrityManifest.algorithm).toBe('sha256');
     expect(packet.integrityManifest.sections.map(section => section.section)).toEqual(expect.arrayContaining([
       'sourcePayload',
@@ -39,6 +41,7 @@ describe('Decision packets and integrity manifests', () => {
       'evidencePack',
       'regulatoryMatrix',
       'contractPlaybook',
+      'approvalGate',
       'reviewerNote',
       'transitionHistory',
       'humanReviewNotice'
@@ -57,6 +60,8 @@ describe('Decision packets and integrity manifests', () => {
 
     expect(markdown).toContain('# Decision Packet:');
     expect(markdown).toContain('## Source Payload');
+    expect(markdown).toContain('## Approval Gate');
+    expect(markdown).toContain('Export Allowed: false');
     expect(markdown).toContain('## Integrity Manifest');
     expect(markdown).toContain(packet.integrityManifest.overallDigest);
   });

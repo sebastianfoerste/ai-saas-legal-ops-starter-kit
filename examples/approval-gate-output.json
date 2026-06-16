@@ -1,0 +1,36 @@
+{
+  "schema": "ai-saas-legal-ops-starter-kit.approval-gate-snapshot.v1",
+  "matter": "Workspace Agent Builder for Regulated Teams",
+  "generatedAt": "2026-06-15T10:30:00.000Z",
+  "status": "blocked",
+  "exportAllowed": false,
+  "riskLevel": "escalate",
+  "reviewGate": "gc-review",
+  "requiredApprovals": [
+    "DPO Sign-off",
+    "Security Review",
+    "Product Owner Approval",
+    "Senior Legal Review",
+    "GC Approval",
+    "Regulatory Counsel Review"
+  ],
+  "approvedApprovals": [
+    "DPO Sign-off",
+    "Security Review",
+    "Product Owner Approval"
+  ],
+  "missingApprovals": [
+    "Senior Legal Review",
+    "GC Approval",
+    "Regulatory Counsel Review"
+  ],
+  "rejectedApprovals": [],
+  "blockerReasons": [
+    "Resolve before approval: Product launch targets regulated customer segments",
+    "Resolve before approval: Regulatory impact assessment triggers escalation: DORA, EU AI Act transparency and regulated-sector governance review required before broad release.",
+    "Approval missing: Senior Legal Review",
+    "Approval missing: GC Approval",
+    "Approval missing: Regulatory Counsel Review"
+  ],
+  "humanReviewNotice": "Synthetic workflow snapshot. Draft internal decision support only. No legal advice."
+}
