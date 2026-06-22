@@ -21,6 +21,8 @@ export {
   LegalActionPlan,
   LegalActionPlanOptions,
   LegalMatterData,
+  RequiredReviewerRole,
+  ReviewerRole,
   ReviewGate
 } from './action-plan.js';
 export {
@@ -68,6 +70,12 @@ export {
   ExportApprovalGate,
   ExportGateStatus
 } from './approval-gate.js';
+export {
+  createAiVendorDiligencePacket,
+  renderAiVendorDiligenceMarkdown,
+  AiVendorDiligenceOptions,
+  AiVendorDiligencePacket
+} from './ai-vendor-diligence.js';
 export {
   createRegulatoryObligationMatrix,
   renderRegulatoryObligationMatrixMarkdown,

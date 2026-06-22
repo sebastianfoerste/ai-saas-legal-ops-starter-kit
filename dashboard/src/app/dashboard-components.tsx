@@ -40,9 +40,17 @@ interface LegalActionPlan {
   reviewGate: ReviewGate;
   priority: 'routine' | 'watch' | 'urgent' | 'blocked';
   requiredApprovals: string[];
+  requiredReviewerRoles: RequiredReviewerRole[];
   blockers: string[];
   followUps: string[];
   evidenceToCollect: string[];
+}
+
+interface RequiredReviewerRole {
+  approval: string;
+  role: string;
+  label: string;
+  reason: string;
 }
 
 interface EvidenceItem {
@@ -274,6 +282,24 @@ export function ActionPlanTab({ plan, risk }: { plan?: LegalActionPlan; risk?: R
       <section className="issue-section highlight">
         <h3>Next action</h3>
         <p>{plan.nextAction}</p>
+      </section>
+      <section className="issue-section">
+        <h3>Reviewer queue</h3>
+        <div className="task-list">
+          {plan.requiredReviewerRoles.length > 0 ? (
+            plan.requiredReviewerRoles.map(item => (
+              <article key={`${item.role}:${item.approval}`} className="task-row">
+                <label>
+                  <input type="checkbox" disabled />
+                  <span>{item.label}</span>
+                </label>
+                <p>{item.approval}</p>
+              </article>
+            ))
+          ) : (
+            <p>No role-gated approvals.</p>
+          )}
+        </div>
       </section>
       <ListSection title="Required approvals" values={plan.requiredApprovals} />
       <ListSection title="Blockers" values={plan.blockers} empty="No blockers." />

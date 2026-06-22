@@ -22,14 +22,23 @@ describe('Export approval gate', () => {
     });
 
     const gate = evaluateExportApprovalGate(plan, [
-      approval('DPO Sign-off'),
-      approval('Product Owner Approval')
+      approval('DPO Sign-off', 'privacy'),
+      approval('Product Owner Approval', 'product')
     ]);
 
     expect(gate.exportAllowed).toBe(false);
     expect(gate.status).toBe('blocked');
     expect(gate.missingApprovals).toContain('Security Review');
+    expect(gate.missingRoleRequirements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          approval: 'Security Review',
+          role: 'security'
+        })
+      ])
+    );
     expect(gate.blockerReasons).toContain('Approval missing: Security Review');
+    expect(gate.blockerReasons).toContain('Reviewer role missing: Security for Security Review');
   });
 
   test('allows export only when all required approvals are approved and blockers are clear', () => {
@@ -48,18 +57,51 @@ describe('Export approval gate', () => {
       requiredApprovals: ['Product Owner Approval']
     });
 
-    const gate = evaluateExportApprovalGate(plan, [approval('Product Owner Approval')]);
+    const gate = evaluateExportApprovalGate(plan, [approval('Product Owner Approval', 'product')]);
 
     expect(plan.blockers).toEqual([]);
     expect(gate.exportAllowed).toBe(true);
     expect(gate.status).toBe('allowed');
     expect(gate.missingApprovals).toEqual([]);
+    expect(gate.approvedRoleRequirements).toEqual([
+      expect.objectContaining({
+        approval: 'Product Owner Approval',
+        role: 'product'
+      })
+    ]);
+  });
+
+  test('blocks approval records with the wrong reviewer role', () => {
+    const plan = createLegalActionPlan('AIVendorReview', {
+      vendor: 'Synthetic AI Vendor',
+      dataEntered: ['customer support tickets'],
+      retentionPosition: 'Vendor keeps logs for training review.',
+      trainingOnCustomerData: true,
+      requiredApprovals: ['Security Review', 'Privacy Review']
+    });
+
+    const gate = evaluateExportApprovalGate(plan, [
+      approval('Security Review', 'privacy'),
+      approval('Privacy Review', 'privacy')
+    ]);
+
+    expect(gate.exportAllowed).toBe(false);
+    expect(gate.missingRoleRequirements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          approval: 'Security Review',
+          role: 'security'
+        })
+      ])
+    );
+    expect(gate.blockerReasons).toContain('Reviewer role missing: Security for Security Review');
   });
 });
 
-function approval(name: string): ApprovalRecord {
+function approval(name: string, role: ApprovalRecord['role']): ApprovalRecord {
   return {
     approval: name,
+    role,
     state: 'approved',
     reviewer: 'Synthetic Reviewer',
     note: 'Approved for synthetic demo review.',
