@@ -2,6 +2,18 @@ import { calculateRisk, type RiskAssessment, type RiskLevel } from './risk-scori
 
 export type ReviewGate = 'self-serve' | 'legal-review' | 'senior-legal-review' | 'gc-review';
 export type ActionPriority = 'routine' | 'watch' | 'urgent' | 'blocked';
+export type ReviewerRole =
+  | 'commercial'
+  | 'customer_success'
+  | 'engineering'
+  | 'finance'
+  | 'gc'
+  | 'legal'
+  | 'open_source'
+  | 'privacy'
+  | 'product'
+  | 'regulatory_counsel'
+  | 'security';
 
 export type LegalMatterData = Record<string, unknown>;
 
@@ -17,10 +29,18 @@ export interface LegalActionPlan {
   summary: string;
   nextAction: string;
   requiredApprovals: string[];
+  requiredReviewerRoles: RequiredReviewerRole[];
   blockers: string[];
   followUps: string[];
   evidenceToCollect: string[];
   auditTrail: string[];
+}
+
+export interface RequiredReviewerRole {
+  approval: string;
+  role: ReviewerRole;
+  label: string;
+  reason: string;
 }
 
 interface ActionProfile {
@@ -149,6 +169,7 @@ export function createLegalActionPlan(
     summary: profile.summary,
     nextAction: profile.nextAction,
     requiredApprovals,
+    requiredReviewerRoles: buildRequiredReviewerRoles(requiredApprovals),
     blockers,
     followUps,
     evidenceToCollect,
@@ -156,6 +177,7 @@ export function createLegalActionPlan(
       `Schema type: ${schemaType}`,
       `Risk level: ${risk.level}`,
       `Review gate: ${profile.reviewGate}`,
+      `Reviewer roles: ${buildRequiredReviewerRoles(requiredApprovals).map(item => item.role).join(', ') || 'none'}`,
       'Automated output is triage support only. Human review is required for consequential legal decisions.'
     ]
   };
@@ -210,6 +232,50 @@ function inferApprovals(typeKey: string, risk: RiskAssessment, data: LegalMatter
   }
 
   return approvals;
+}
+
+function buildRequiredReviewerRoles(approvals: string[]): RequiredReviewerRole[] {
+  return approvals.map(approval => {
+    const role = inferReviewerRole(approval);
+    return {
+      approval,
+      role,
+      label: roleLabel(role),
+      reason: `Required approval: ${approval}`
+    };
+  });
+}
+
+function inferReviewerRole(approval: string): ReviewerRole {
+  const normalized = approval.toLowerCase();
+  if (normalized.includes('gc')) return 'gc';
+  if (normalized.includes('dpo') || normalized.includes('privacy')) return 'privacy';
+  if (normalized.includes('security')) return 'security';
+  if (normalized.includes('product')) return 'product';
+  if (normalized.includes('finance')) return 'finance';
+  if (normalized.includes('regulatory')) return 'regulatory_counsel';
+  if (normalized.includes('commercial')) return 'commercial';
+  if (normalized.includes('customer success')) return 'customer_success';
+  if (normalized.includes('engineering')) return 'engineering';
+  if (normalized.includes('open-source') || normalized.includes('open source')) return 'open_source';
+  return 'legal';
+}
+
+function roleLabel(role: ReviewerRole): string {
+  const labels: Record<ReviewerRole, string> = {
+    commercial: 'Commercial',
+    customer_success: 'Customer Success',
+    engineering: 'Engineering',
+    finance: 'Finance',
+    gc: 'GC',
+    legal: 'Legal',
+    open_source: 'Open Source',
+    privacy: 'Privacy',
+    product: 'Product',
+    regulatory_counsel: 'Regulatory Counsel',
+    security: 'Security'
+  };
+  return labels[role];
 }
 
 function buildBlockers(risk: RiskAssessment): string[] {

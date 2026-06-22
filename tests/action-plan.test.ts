@@ -50,6 +50,14 @@ describe('Legal Action Plan Generator', () => {
         'Regulatory Counsel Review'
       ])
     );
+    expect(result.requiredReviewerRoles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ approval: 'DPO Sign-off', role: 'privacy' }),
+        expect.objectContaining({ approval: 'Product Owner Approval', role: 'product' }),
+        expect.objectContaining({ approval: 'GC Approval', role: 'gc' }),
+        expect.objectContaining({ approval: 'Regulatory Counsel Review', role: 'regulatory_counsel' })
+      ])
+    );
     expect(result.blockers.some(blocker => blocker.includes('public claims'))).toBe(true);
     expect(result.followUps).toContain(
       'Request evidence for each public claim and hold publication until claims review is complete.'

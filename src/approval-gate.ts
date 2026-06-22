@@ -1,10 +1,11 @@
-import type { LegalActionPlan } from './action-plan.js';
+import type { LegalActionPlan, RequiredReviewerRole, ReviewerRole } from './action-plan.js';
 
 export type ApprovalRecordState = 'approved' | 'pending' | 'rejected';
 export type ExportGateStatus = 'allowed' | 'blocked';
 
 export interface ApprovalRecord {
   approval: string;
+  role?: ReviewerRole;
   state: ApprovalRecordState;
   reviewer: string;
   note: string;
@@ -18,6 +19,9 @@ export interface ExportApprovalGate {
   approvedApprovals: string[];
   missingApprovals: string[];
   rejectedApprovals: string[];
+  roleRequirements: RequiredReviewerRole[];
+  approvedRoleRequirements: RequiredReviewerRole[];
+  missingRoleRequirements: RequiredReviewerRole[];
   blockerReasons: string[];
   approvalRecords: ApprovalRecord[];
 }
@@ -27,19 +31,31 @@ export function evaluateExportApprovalGate(
   approvalRecords: ApprovalRecord[] = []
 ): ExportApprovalGate {
   const requiredApprovals = uniqueStrings(actionPlan.requiredApprovals);
+  const roleRequirements = actionPlan.requiredReviewerRoles ?? [];
   const approvedApprovals = requiredApprovals.filter(approval =>
-    hasApprovalState(approvalRecords, approval, 'approved')
+    hasApprovalState(approvalRecords, approval, 'approved', roleForApproval(roleRequirements, approval))
   );
   const rejectedApprovals = requiredApprovals.filter(approval =>
-    hasApprovalState(approvalRecords, approval, 'rejected')
+    hasApprovalState(approvalRecords, approval, 'rejected', roleForApproval(roleRequirements, approval))
   );
   const missingApprovals = requiredApprovals.filter(
     approval => !approvedApprovals.includes(approval) && !rejectedApprovals.includes(approval)
   );
+  const approvedRoleRequirements = roleRequirements.filter(requirement =>
+    hasApprovalState(approvalRecords, requirement.approval, 'approved', requirement.role)
+  );
+  const missingRoleRequirements = roleRequirements.filter(
+    requirement =>
+      !approvedRoleRequirements.some(approved => sameRequirement(approved, requirement))
+      && !hasApprovalState(approvalRecords, requirement.approval, 'rejected', requirement.role)
+  );
   const blockerReasons = [
     ...actionPlan.blockers,
     ...rejectedApprovals.map(approval => `Approval rejected: ${approval}`),
-    ...missingApprovals.map(approval => `Approval missing: ${approval}`)
+    ...missingApprovals.map(approval => `Approval missing: ${approval}`),
+    ...missingRoleRequirements.map(
+      requirement => `Reviewer role missing: ${requirement.label} for ${requirement.approval}`
+    )
   ];
   const exportAllowed = blockerReasons.length === 0;
 
@@ -50,6 +66,9 @@ export function evaluateExportApprovalGate(
     approvedApprovals,
     missingApprovals,
     rejectedApprovals,
+    roleRequirements,
+    approvedRoleRequirements,
+    missingRoleRequirements,
     blockerReasons,
     approvalRecords
   };
@@ -58,10 +77,15 @@ export function evaluateExportApprovalGate(
 function hasApprovalState(
   records: ApprovalRecord[],
   approval: string,
-  state: ApprovalRecordState
+  state: ApprovalRecordState,
+  role?: ReviewerRole
 ): boolean {
   const expected = normalize(approval);
-  return records.some(record => normalize(record.approval) === expected && record.state === state);
+  return records.some(record =>
+    normalize(record.approval) === expected
+    && record.state === state
+    && (!role || record.role === role)
+  );
 }
 
 function uniqueStrings(values: string[]): string[] {
@@ -83,4 +107,12 @@ function uniqueStrings(values: string[]): string[] {
 
 function normalize(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function roleForApproval(requirements: RequiredReviewerRole[], approval: string): ReviewerRole | undefined {
+  return requirements.find(requirement => normalize(requirement.approval) === normalize(approval))?.role;
+}
+
+function sameRequirement(left: RequiredReviewerRole, right: RequiredReviewerRole): boolean {
+  return normalize(left.approval) === normalize(right.approval) && left.role === right.role;
 }

@@ -65,9 +65,17 @@ interface LegalActionPlan {
   reviewGate: ReviewGate;
   priority: 'routine' | 'watch' | 'urgent' | 'blocked';
   requiredApprovals: string[];
+  requiredReviewerRoles: RequiredReviewerRole[];
   blockers: string[];
   followUps: string[];
   evidenceToCollect: string[];
+}
+
+interface RequiredReviewerRole {
+  approval: string;
+  role: string;
+  label: string;
+  reason: string;
 }
 
 interface EvidenceItem {
@@ -1161,4 +1169,3 @@ export default function Dashboard() {
     </main>
   );
 }
-
