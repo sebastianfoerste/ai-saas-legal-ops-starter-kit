@@ -1,33 +1,58 @@
-# AI SaaS Legal Ops Starter Kit
+# ai-saas-legal-ops-starter-kit
 
-[![CI Status](https://github.com/sebastianfoerste/ai-saas-legal-ops-starter-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/sebastianfoerste/ai-saas-legal-ops-starter-kit/actions/workflows/ci.yml)
-[![Language: TypeScript](https://img.shields.io/badge/Language-TypeScript-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Testing: Vitest](https://img.shields.io/badge/Testing-Vitest-yellow?style=flat-square&logo=vitest)](https://vitest.dev/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
-[![Data Safety: Public Safe](https://img.shields.io/badge/Data%20Safety-Public%20Safe-success?style=flat-square)](#public-safety-note)
+Public-safe legal operating layer for AI SaaS — contract intake, DPA triage, AI-vendor review, launch governance, approval-gated risk reporting. Not legal advice; data is synthetic.
 
-### A public-safe legal operating layer for AI-native SaaS
+> **If you don't code:** scroll to [What the demo produces](#what-the-demo-produces). This repo ships a sample output you can read in the browser. The point isn't the code; it's whether the legal work is structured, cited, reviewable, and testable.
 
-This is a working legal operating layer for an AI-native SaaS company. It turns a first legal hire's recurring work into typed schemas, deterministic risk rules and review-gated workflows: SaaS contract intake, DPA and privacy triage, AI vendor and zero-retention review, open-source licence checks, customer commitments, product launch governance and a board risk register. It runs from the command line on synthetic data and produces a machine-readable audit trail. A qualified lawyer supervises every consequential output. It does not provide legal advice.
+![demo](docs/demo.png)
 
-## What This Proves
+## Run it
 
-This repository demonstrates:
+```bash
+git clone https://github.com/sebastianfoerste/ai-saas-legal-ops-starter-kit
+cd ai-saas-legal-ops-starter-kit
+npm install && npm run build
+node dist/src/cli.js
+```
 
-1.  **Contracts as Code**: Defining business constraints for intakes, DPA structures, and AI vendor reviews using strict, testable JSON Schemas.
-2.  **Deterministic Risk Scoring**: Building automated risk classification models that isolate and escalate high-risk matters (such as model training on customer data, GDPR special category processing, or unvetted public claims) without manual, human-only pipelines.
-3.  **Deterministic Action Plans**: Translating each risk score into required approvals, blockers, follow-ups, evidence requests, and audit-trail entries.
-4.  **AI Governance Evidence Packs**: Mapping product, vendor, and DPA matters to EU AI Act, GDPR, NIST AI RMF, ISO/IEC 42001, DORA, and internal-policy evidence requirements.
-5.  **Regulatory Obligation Matrix**: Producing reviewer-facing rows for AI Act, GDPR, DORA, Data Act, Cyber Resilience Act, OWASP GenAI, and internal-policy evidence gaps.
-6.  **Decision Packets**: Exporting source payload, validation, risk, action plan, evidence pack, matrix, playbook deviations, reviewer note, transition history, and SHA-256 manifest.
-7.  **Portfolio Risk Register Reporting**: Aggregating matters into board-ready counts, approval queues, overdue matters, blockers, and recommended actions.
-8.  **Contract Playbook Reviews**: Translating SaaS contract deviations into fallback positions, non-starters, approvals, and reviewer notes.
-9.  **Self-Serve CLI Demo**: Running the whole legal-ops workflow from bundled schemas and examples into Markdown or JSON reports.
-10. **Self-Serve Playbooks**: Turning operational controls into templates that business owners can complete and run through automated validation checks.
-11. **Production-Minded Design**: Clean TypeScript implementation, modular architecture, and structured workflows that are easy for legal and engineering reviewers to inspect.
-12. **Engineering Legibility**: Typed workflows, Vitest tests, package smoke checks, and clear run paths that engineering and legal can inspect together.
+Runs end to end, offline and deterministically.
 
-See [Sample Output Logs](sample-output.md), [Schema Reference](docs/schema-reference.md), and the [Approval Gate Snapshot](examples/approval-gate-output.json) for more detail.
+## What the demo produces
+
+The demo compiles multiple matter payloads (contract, DPA, vendor reviews) into a portfolio risk register, highlighting approval queues, active blockers, and policy health. You can read the committed sample output: [`examples/launch-governance-report.md`](examples/launch-governance-report.md).
+
+```markdown
+# AI SaaS Legal Ops Demo Report
+
+- Examples Valid: 6/6
+- Portfolio Summary: 6 matters reviewed. 5 matters are high-risk or escalated.
+- Policy Health: valid (1 custom rule)
+
+## Matter Overview
+
+| Workflow | Validation | Risk | Review Gate | Evidence Readiness |
+| --- | --- | --- | --- | --- |
+| SaaS Contract Intake | valid | escalate | gc-review | blocked |
+| DPA Triage | valid | escalate | gc-review | blocked |
+```
+
+In the sample run, the self-serve templates and playbooks turn repeat legal work into a checklist a lawyer signs off, not re-drafts.
+
+## What it checks / does
+
+| Workflow / Area | Focus | Verification Method |
+|---|---|---|
+| SaaS Contract Intake | Deal terms check | Checks liability deviations and active red flags |
+| DPA Triage | Privacy triage | Flags GDPR special categories, hosting regions, and subprocessors |
+| AI Vendor Review | Third-party AI risk | Validates copyright indemnity, data use policies, and SOC 2 reports |
+
+---
+
+> **What workflow does this improve?** Recurring SaaS legal work (contracting, privacy, vendor triage).
+> **Who is the user?** Legal Counsel, CSM Leads, and Product Managers.
+> **Where does human review happen?** At the approval gate before matters are finalized or signed off.
+> **What is blocked until approval?** Matters with high risk scores or unresolved blockers (e.g. at-risk customer commitments).
+> **What would I tell Product?** To embed these JSON schemas directly into intake forms to automate validation.
 
 ## Portfolio Value
 
