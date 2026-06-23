@@ -27,7 +27,7 @@ This repository demonstrates:
 11. **Production-Minded Design**: Clean TypeScript implementation, modular architecture, and structured workflows that are easy for legal and engineering reviewers to inspect.
 12. **Engineering Legibility**: Typed workflows, Vitest tests, package smoke checks, and clear run paths that engineering and legal can inspect together.
 
-See [What This Proves for a General Counsel Candidate](what-this-proves.md), [Sample Output Logs](sample-output.md), [Schema Reference](docs/schema-reference.md), and the [Approval Gate Snapshot](examples/approval-gate-output.json) for more detail.
+See [Sample Output Logs](sample-output.md), [Schema Reference](docs/schema-reference.md), and the [Approval Gate Snapshot](examples/approval-gate-output.json) for more detail.
 
 ## Portfolio Value
 

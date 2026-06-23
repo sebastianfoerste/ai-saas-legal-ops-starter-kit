@@ -28,8 +28,7 @@
     "docs",
     "README.md",
     "LICENSE",
-    "sample-output.md",
-    "what-this-proves.md"
+    "sample-output.md"
   ],
   "scripts": {
     "build": "tsc",
