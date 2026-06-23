@@ -1,65 +1,28 @@
-# Case Study: AI SaaS Legal Operations Starter Kit
+# Case study — ai-saas-legal-ops-starter-kit
 
-## Legal problem
+> The recurring legal work of an AI SaaS business should run on templates, triage, and gates — not ad-hoc email. Synthetic data only; not legal advice.
 
-AI SaaS companies face recurring legal work around customer contracting, privacy review, vendor review, launch governance, approval trails and escalation.
+## Problem
+A fast-growing AI SaaS company generates the same legal work every week: contract intake, DPA and sub-processor review, AI-vendor approval, launch governance. Done ad hoc, it is inconsistent, slow, and invisible to leadership — and it does not scale with headcount. The need is an operating layer, not more one-off advice.
 
-The same legal questions often repeat, but they are handled through fragmented email threads, ad hoc documents or informal approvals.
+## Users
+A first legal hire, GC, or legal ops lead standing up the function — and the Sales, Product, and Security teams who need fast, consistent legal answers.
 
-## Product problem
+## Workflow
+1. **Intake** — commercial contracts, DPAs, vendor and AI-tool requests captured as structured items.
+2. **Triage** — each routed and risk-scored against a playbook (DPA triage, vendor review, AI Act transparency, commercial review).
+3. **Launch governance** — a release is gated on the open legal items it depends on.
+4. **Reporting** — an approval-gated risk report and a launch decision (e.g. **HOLD** on open items).
+5. **Self-serve assets** — templates and playbooks the business can use without a lawyer in every thread.
 
-A growing AI SaaS company needs a legal operating layer that turns recurring questions into structured workflows without hiding escalation points or legal judgment.
+## Controls
+Launch is gated: open high-risk items hold the release. Everything routes to a named owner with an approval tier. The companion `legal-function-operating-system` provides the routing/SLA/approval/board-pack engine underneath; `dpa-and-data-transfer-review` provides the cited DPA checks.
 
-The product challenge is to make legal work faster while preserving review status, blockers, approvals and auditability.
+## Evaluation
+The bundled launch report (`examples/launch-governance-report.md`) takes a synthetic "Agents GA" release and returns **HOLD** on two gated items — a US sub-processor without a transfer mechanism and a missing AI Act transparency notice — each routed and remediated.
 
-## Workflow design
+## Limitations
+Templates and playbooks are illustrative starting points, not firm-specific precedent; the kit models the operating layer over synthetic inputs and is not integrated with a real CLM or ticketing system.
 
-The starter kit models recurring AI SaaS legal work through structured artifacts and workflow states.
-
-Core workflow areas include:
-
-1. Contract intake
-2. DPA triage
-3. Vendor review
-4. Launch governance
-5. Commercial blockers
-6. Approval trails
-7. Audit ready records
-
-## AI risk addressed
-
-The project addresses:
-
-1. Informal legal approvals
-2. Missing escalation points
-3. Inconsistent contracting positions
-4. Fragmented privacy and vendor review
-5. Unclear launch readiness
-6. Lack of audit trail for product and commercial decisions
-
-## Human review model
-
-The workflow makes recurring legal judgment more structured. It does not replace counsel.
-
-Human reviewers remain responsible for escalation, negotiation positions, final approvals and risk acceptance.
-
-## Evaluation or quality control
-
-The project uses structured data, schema validation and tests to make recurring legal processes more predictable.
-
-The quality focus is consistency, transparency and reviewability.
-
-## What I would improve next
-
-1. Add a diagram of the legal operating layer
-2. Add screenshots or sample JSON packets
-3. Add a synthetic customer contract intake example
-4. Add a DPA triage case study
-5. Add a launch readiness checklist
-6. Add a simple dashboard view for blockers and approvals
-
-## Relevance for Legal Engineer / Product Specialist roles
-
-This project demonstrates how legal work inside AI SaaS companies can be productised into structured workflows.
-
-It is relevant for roles that require practical legal judgment, SaaS operations, privacy workflow awareness, commercial enablement and safe AI product delivery.
+## Next steps
+Wire intake to a real request channel (Slack/Jira); connect the DPA checks to `dpa-and-data-transfer-review`; add the `legal-function-operating-system` board pack as the leadership view; tune playbooks to a specific company's risk posture.
