@@ -573,3 +573,23 @@ AI-native platforms process significant amounts of client data through external 
 ## License
 
 This repository is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
+
+## Human-authored legal judgment
+AI tools assisted the implementation, but the parts that carry the value are
+human-authored: the legal answer sets, risk taxonomy, escalation logic, citations,
+and review states. The point of this repository is not code volume — it is showing
+how legal judgment can be made structured, testable, and reviewable.
+
+## Why this matters for AI SaaS
+AI SaaS legal work is not just contract review — it is customer commitments, data
+protection, vendor review, model governance, launch approvals, security
+questionnaires, and board reporting. The value is the operating layer around those
+decisions, which is what this kit models.
+
+## Known limitations
+Public-safe templates and triage over synthetic inputs.
+1. Templates are starting points, not firm-specific precedent.
+2. Not integrated with a real CLM, ticketing, or analytics backend.
+3. Playbook thresholds are illustrative defaults.
+Next production step: connect intake to a real channel, wire the DPA checks to
+`dpa-and-data-transfer-review`, and add the `legal-function-operating-system` board pack.
