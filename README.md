@@ -2,7 +2,7 @@
 
 See [CASE_STUDY.md](CASE_STUDY.md) for the problem, controls, and limitations.
 
-Public-safe legal operating layer for AI SaaS — contract intake, DPA triage, AI-vendor review, launch governance, approval-gated risk reporting. Not legal advice; data is synthetic.
+Public-safe legal operating layer for AI SaaS — contract intake, DPA triage, AI-vendor review, launch governance, approval-gated risk reporting. Powered by [legal-function-operating-system](https://github.com/sebastianfoerste/legal-function-operating-system) as the core request routing and policy engine. Not legal advice; data is synthetic.
 
 > **If you don't code:** scroll to [What the demo produces](#what-the-demo-produces). This repo ships a sample output you can read in the browser. The point isn't the code; it's whether the legal work is structured, cited, reviewable, and testable.
 
