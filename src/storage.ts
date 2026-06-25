@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { isSchemaType } from './schema-types.js';
+import { requireRepoRoot } from './workflows.js';
 
 export interface PersistedMatter {
   id: string;
@@ -60,14 +61,7 @@ export interface MatterListResult {
 }
 
 const getStorageDir = () => {
-  const cwd = process.cwd();
-  const isDashboard = cwd.endsWith('/dashboard')
-    || cwd.endsWith('\\dashboard')
-    || cwd.includes('/dashboard/')
-    || cwd.includes('\\dashboard\\');
-  return isDashboard
-    ? path.resolve(/*turbopackIgnore: true*/ process.cwd(), '..', '.storage', 'matters')
-    : path.resolve(/*turbopackIgnore: true*/ process.cwd(), '.storage', 'matters');
+  return path.resolve(requireRepoRoot(), '.storage', 'matters');
 };
 
 function ensureDirExists(): string {

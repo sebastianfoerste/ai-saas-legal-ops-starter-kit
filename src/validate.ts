@@ -44,9 +44,9 @@ function getFriendlyRecommendation(err: any, schema: any): string {
 
   // Add policy context link if relevant
   if (propertyName === 'regulatedCustomer' || propertyName === 'customerSector' || propertyName === 'customerSegment') {
-    advice += ` Refer to [escalation-rules.md](file:///Users/sebastian/Developer/ai-saas-legal-ops-starter-kit/policies/escalation-rules.md) for regulated routing boundaries.`;
+    advice += ` Refer to policies/escalation-rules.md for regulated routing boundaries.`;
   } else if (propertyName === 'trainingOnCustomerData' || propertyName === 'aiFeatures') {
-    advice += ` Refer to [ai-vendor-use-policy.md](file:///Users/sebastian/Developer/ai-saas-legal-ops-starter-kit/policies/ai-vendor-use-policy.md) for model training policies.`;
+    advice += ` Refer to policies/ai-vendor-use-policy.md for model training policies.`;
   }
   
   return advice;

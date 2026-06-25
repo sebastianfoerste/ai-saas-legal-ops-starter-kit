@@ -300,6 +300,7 @@ function evaluateCondition(data: any, cond: Condition): boolean {
   const val = data[cond.field];
   switch (cond.operator) {
     case 'equals':
+      if (val === undefined || val === null) return false;
       return String(val).toLowerCase() === String(cond.value).toLowerCase();
     case 'contains':
       if (typeof val === 'string') {

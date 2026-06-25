@@ -186,7 +186,7 @@ export function GuidedIntakeFields({
     <section className="guided-fields" aria-label="Guided intake fields">
       {Object.keys(template).map(field => {
         const value = data[field] ?? template[field];
-        const errors = validationErrors.filter(error => error.toLowerCase().includes(`'${field.toLowerCase()}'`) || error.toLowerCase().includes(field.toLowerCase()));
+        const errors = validationErrors.filter(error => error.toLowerCase().includes(`'${field.toLowerCase()}'`));
         return (
           <label key={field} className="guided-field">
             <span>{humanizeField(field)}</span>
@@ -551,13 +551,16 @@ function GuidedFieldControl({
         <textarea
           className="json-input compact"
           rows={7}
-          value={JSON.stringify(value, null, 2)}
-          onChange={event => {
+          defaultValue={JSON.stringify(value, null, 2)}
+          key={`${field}-${value ? JSON.stringify(value) : ''}`}
+          onBlur={event => {
             try {
               const parsed = JSON.parse(event.target.value);
-              onChange(field, Array.isArray(parsed) ? parsed : value);
+              if (Array.isArray(parsed)) {
+                onChange(field, parsed);
+              }
             } catch {
-              onChange(field, value);
+              // Keep previous value
             }
           }}
         />
@@ -579,12 +582,16 @@ function GuidedFieldControl({
       <textarea
         className="json-input compact"
         rows={5}
-        value={JSON.stringify(value, null, 2)}
-        onChange={event => {
+        defaultValue={JSON.stringify(value, null, 2)}
+        key={`${field}-${value ? JSON.stringify(value) : ''}`}
+        onBlur={event => {
           try {
-            onChange(field, JSON.parse(event.target.value));
+            const parsed = JSON.parse(event.target.value);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              onChange(field, parsed);
+            }
           } catch {
-            onChange(field, event.target.value);
+            // Keep previous value
           }
         }}
       />

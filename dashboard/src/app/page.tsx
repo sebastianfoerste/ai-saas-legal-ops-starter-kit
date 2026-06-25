@@ -448,13 +448,15 @@ function stringifyData(data: MatterData): string {
 }
 
 async function copyTextToClipboard(text: string): Promise<void> {
-  if (copyTextWithTextarea(text)) {
-    return;
-  }
-
   if (typeof navigator !== 'undefined' && navigator.clipboard) {
-    await navigator.clipboard.writeText(text);
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // Fallback to textarea copy
+    }
   }
+  copyTextWithTextarea(text);
 }
 
 function copyTextWithTextarea(text: string): boolean {
