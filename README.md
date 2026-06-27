@@ -2,7 +2,9 @@
 
 See [CASE_STUDY.md](CASE_STUDY.md) for the problem, controls, and limitations.
 
-Public-safe legal operating layer for AI SaaS — contract intake, DPA triage, AI-vendor review, launch governance, approval-gated risk reporting. Powered by [legal-function-operating-system](https://github.com/sebastianfoerste/legal-function-operating-system) as the core request routing and policy engine. Not legal advice; data is synthetic.
+Public-safe legal operating layer for AI SaaS: contract intake, DPA triage, AI-vendor review, launch governance, approval-gated risk reporting. Powered by [legal-function-operating-system](https://github.com/sebastianfoerste/legal-function-operating-system) as the core request routing and policy engine. Not legal advice; data is synthetic.
+
+**Public-safety posture:** synthetic matters only, source provenance and evidence references, approval records, human review gates, and no legal advice.
 
 > **If you don't code:** scroll to [What the demo produces](#what-the-demo-produces). This repo ships a sample output you can read in the browser. The point isn't the code; it's whether the legal work is structured, cited, reviewable, and testable.
 
@@ -39,6 +41,17 @@ The demo compiles multiple matter payloads (contract, DPA, vendor reviews) into 
 ```
 
 In the sample run, the self-serve templates and playbooks turn repeat legal work into a checklist a lawyer signs off, not re-drafts.
+
+## Self-serve legal portal path
+
+This is the Dust General Counsel reviewer path:
+
+1. **SaaS contract intake:** capture deal terms, liability deviations, regulated-customer status, and customer commitments.
+2. **DPA triage:** check data categories, hosting regions, subprocessors, deletion SLAs, and transfer evidence.
+3. **AI vendor review:** record model-provider terms, training restrictions, retention position, security evidence, and copyright/IP posture.
+4. **Product launch governance:** connect launch claims, AI features, privacy updates, and EU AI Act constraints before external release.
+5. **External counsel handoff:** route specialist questions with the issue, owner, blockers, and evidence references already structured.
+6. **Approval records:** keep `review_state`, owner, blockers, `approval_required`, and `evidence_refs` visible in the review packet before anything is treated as final.
 
 ## What it checks / does
 
@@ -577,11 +590,11 @@ This repository is licensed under the **MIT License**. See [LICENSE](LICENSE) fo
 ## Human-authored legal judgment
 AI tools assisted the implementation, but the parts that carry the value are
 human-authored: the legal answer sets, risk taxonomy, escalation logic, citations,
-and review states. The point of this repository is not code volume — it is showing
+and review states. The point of this repository is not code volume; it is showing
 how legal judgment can be made structured, testable, and reviewable.
 
 ## Why this matters for AI SaaS
-AI SaaS legal work is not just contract review — it is customer commitments, data
+AI SaaS legal work is not just contract review. It is customer commitments, data
 protection, vendor review, model governance, launch approvals, security
 questionnaires, and board reporting. The value is the operating layer around those
 decisions, which is what this kit models.
