@@ -44,7 +44,7 @@ In the sample run, the self-serve templates and playbooks turn repeat legal work
 
 ## Self-serve legal portal path
 
-This is the Dust General Counsel reviewer path:
+This is the reviewer path for an AI-native SaaS legal function:
 
 1. **SaaS contract intake:** capture deal terms, liability deviations, regulated-customer status, and customer commitments.
 2. **DPA triage:** check data categories, hosting regions, subprocessors, deletion SLAs, and transfer evidence.
